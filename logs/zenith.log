@@ -1,0 +1,9 @@
+2025-11-19 21:08:17 - ZenithConfig - CRITICAL - GOOGLE_API_KEY not found in environment variables.
+2025-11-19 21:09:40 - ZenithConfig - INFO - Configuration loaded. Model: gemini-1.5-pro
+2025-11-19 21:09:40 - ZenithLoader - INFO - Loading system prompt from: data\prompts\system_instruction.sample.md
+2025-11-19 21:09:40 - ZenithAgent - INFO - Initializing model: gemini-1.5-pro
+2025-11-19 21:09:40 - ZenithAgent - INFO - Starting new chat session.
+2025-11-19 21:10:08 - ZenithConfig - INFO - Configuration loaded. Model: gemini-1.5-pro
+2025-11-19 21:10:08 - ZenithLoader - INFO - Loading system prompt from: data\prompts\system_instruction.sample.md
+2025-11-19 21:10:08 - ZenithAgent - INFO - Initializing model: gemini-1.5-pro
+2025-11-19 21:10:08 - ZenithAgent - INFO - Starting new chat session.
