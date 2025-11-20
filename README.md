@@ -73,8 +73,8 @@ Zenith is designed with IP protection as a first-class citizen.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/stuartfsi05/zenith-engine.git
-    cd zenith-engine
+    git clone https://github.com/stuartfsi05/Zenith-Prompt-Architect-Engine.git
+    cd Zenith-Prompt-Architect-Engine
     ```
 
 2.  **Install dependencies:**
