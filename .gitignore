@@ -1,11 +1,22 @@
-# Python
+# --- Python Core ---
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
 
-# Environment variables
+# --- Environment & Secrets ---
 .env
+.venv/
+venv/
 
-# Data
+# --- Runtime Data ---
+logs/
+*.log
+
+# --- Zenith IP Protection: Knowledge Base ---
 data/knowledge/*
 !data/knowledge/.gitkeep
+
+# --- Zenith IP Protection: Prompts ---
+data/prompts/*
+!data/prompts/*.sample.md
