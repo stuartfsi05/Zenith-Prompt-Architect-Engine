@@ -70,5 +70,5 @@ You will be greeted by the Zenith Interface. Type your query to interact with th
 
 ## 📜 License
 
-Copyright © 2024. All Rights Reserved.
+Copyright © 2025. All Rights Reserved.
 This software is proprietary and confidential. Unauthorized copying, transfer, or reproduction is strictly prohibited.
