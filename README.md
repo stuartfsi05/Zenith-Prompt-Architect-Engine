@@ -73,7 +73,7 @@ Zenith is designed with IP protection as a first-class citizen.
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/stuartfsi05/zenith-engine.git]
+    git clone https://github.com/stuartfsi05/zenith-engine.git
     cd zenith-engine
     ```
 
