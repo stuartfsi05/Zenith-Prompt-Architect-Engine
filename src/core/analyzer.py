@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Any
 
+
 class StrategicAnalyzer:
     """
     Implements the Strategic Analysis Module (FDU Framework).
@@ -10,7 +11,7 @@ class StrategicAnalyzer:
         # Simulation of the analysis logic
         return {
             "intent_synthesized": "User request analyzed.",
-            "effort_level": "Standard", 
+            "effort_level": "Standard",
             "vectors": {
                 "nature": "Reasoning",
                 "complexity": "Compound"

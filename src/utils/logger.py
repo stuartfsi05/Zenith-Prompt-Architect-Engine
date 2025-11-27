@@ -1,9 +1,11 @@
 import logging
-import sys
 from pathlib import Path
 from rich.logging import RichHandler
 
-def setup_logger(name: str = "Zenith", log_level: int = logging.INFO) -> logging.Logger:
+
+def setup_logger(
+    name: str = "Zenith", log_level: int = logging.INFO
+) -> logging.Logger:
     """
     Configures and returns a centralized logger with RichHandler for console
     and FileHandler for file logging.
@@ -15,7 +17,7 @@ def setup_logger(name: str = "Zenith", log_level: int = logging.INFO) -> logging
     Returns:
         logging.Logger: Configured logger instance.
     """
-    
+
     # Create logs directory if it doesn't exist
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
@@ -24,7 +26,7 @@ def setup_logger(name: str = "Zenith", log_level: int = logging.INFO) -> logging
     # Create logger
     logger = logging.getLogger(name)
     logger.setLevel(log_level)
-    
+
     # Remove existing handlers to avoid duplicates
     if logger.hasHandlers():
         logger.handlers.clear()

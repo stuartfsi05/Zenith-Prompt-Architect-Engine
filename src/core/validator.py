@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Any
 
+
 class SemanticValidator:
     """
     Implements the Semantic Validation Module (SIC Patterns).
