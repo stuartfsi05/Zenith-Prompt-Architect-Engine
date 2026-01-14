@@ -3,9 +3,7 @@ from pathlib import Path
 from rich.logging import RichHandler
 
 
-def setup_logger(
-    name: str = "Zenith", log_level: int = logging.INFO
-) -> logging.Logger:
+def setup_logger(name: str = "Zenith", log_level: int = logging.INFO) -> logging.Logger:
     """
     Configures and returns a centralized logger with RichHandler for console
     and FileHandler for file logging.
@@ -33,10 +31,7 @@ def setup_logger(
 
     # Console Handler (Rich)
     console_handler = RichHandler(
-        rich_tracebacks=True,
-        markup=True,
-        show_time=True,
-        show_path=False
+        rich_tracebacks=True, markup=True, show_time=True, show_path=False
     )
     console_handler.setLevel(log_level)
     console_format = logging.Formatter("%(message)s")
@@ -47,7 +42,7 @@ def setup_logger(
     file_handler.setLevel(log_level)
     file_format = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
     file_handler.setFormatter(file_format)
 

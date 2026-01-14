@@ -2,8 +2,8 @@ import sys
 import io
 
 # Force UTF-8 encoding for stdout and stderr
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 from rich.console import Console  # noqa: E402
 from rich.panel import Panel  # noqa: E402
@@ -22,11 +22,13 @@ logger = setup_logger("ZenithMain")
 
 def print_header():
     """Prints the application header."""
-    console.print(Panel.fit(
-        "[bold cyan]Zenith | Prompt Architect Engine[/bold cyan]\n"
-        "[dim]Advanced Autonomous Agent Interface[/dim]",
-        border_style="cyan"
-    ))
+    console.print(
+        Panel.fit(
+            "[bold cyan]Zenith | Prompt Architect Engine[/bold cyan]\n"
+            "[dim]Advanced Autonomous Agent Interface[/dim]",
+            border_style="cyan",
+        )
+    )
 
 
 def main():
@@ -35,9 +37,7 @@ def main():
 
     # 1. Load Configuration
     try:
-        with console.status(
-            "[bold green]Loading configuration...", spinner="dots"
-        ):
+        with console.status("[bold green]Loading configuration...", spinner="dots"):
             config = Config.load()
     except ValueError as e:
         console.print(f"[bold red]Configuration Error:[/bold red] {e}")
@@ -49,9 +49,7 @@ def main():
 
     # 2. Load System Prompt
     try:
-        with console.status(
-            "[bold green]Loading system protocols...", spinner="dots"
-        ):
+        with console.status("[bold green]Loading system protocols...", spinner="dots"):
             system_instruction = load_system_prompt(config.SYSTEM_PROMPT_PATH)
     except FileNotFoundError as e:
         console.print(f"[bold red]Critical Error:[/bold red] {e}")
@@ -69,9 +67,7 @@ def main():
         logger.exception("Failed to initialize agent")
         sys.exit(1)
 
-    console.print(
-        "[bold green][OK] System Online. Ready for input.[/bold green]\n"
-    )
+    console.print("[bold green][OK] System Online. Ready for input.[/bold green]\n")
     console.print("[dim]Type 'exit' or 'quit' to terminate session.[/dim]\n")
 
     # 4. Interactive Chat Loop
@@ -79,10 +75,8 @@ def main():
         try:
             user_input = Prompt.ask("[bold cyan]User[/bold cyan]")
 
-            if user_input.lower() in ('exit', 'quit'):
-                console.print(
-                    "[yellow]Shutting down Zenith Engine...[/yellow]"
-                )
+            if user_input.lower() in ("exit", "quit"):
+                console.print("[yellow]Shutting down Zenith Engine...[/yellow]")
                 break
 
             if not user_input.strip():
@@ -93,12 +87,14 @@ def main():
             ):
                 response = agent.run_analysis(user_input)
 
-            console.print(Panel(
-                Markdown(response),
-                title="[bold magenta]Zenith Agent[/bold magenta]",
-                border_style="magenta",
-                expand=False
-            ))
+            console.print(
+                Panel(
+                    Markdown(response),
+                    title="[bold magenta]Zenith Agent[/bold magenta]",
+                    border_style="magenta",
+                    expand=False,
+                )
+            )
             console.print()  # Empty line for spacing
 
         except KeyboardInterrupt:

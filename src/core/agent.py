@@ -5,6 +5,7 @@ from src.utils.logger import setup_logger
 from src.core.analyzer import StrategicAnalyzer
 from src.core.validator import SemanticValidator
 from src.core.judge import TheJudge
+from src.core.knowledge import StrategicKnowledgeBase
 
 logger = setup_logger("ZenithAgent")
 
@@ -24,6 +25,7 @@ class ZenithAgent:
         self.analyzer = StrategicAnalyzer()
         self.validator = SemanticValidator()
         self.judge = TheJudge()
+        self.knowledge_base = StrategicKnowledgeBase(self.config)
 
         self._configure_genai()
         self.model = self._initialize_model()
@@ -33,14 +35,10 @@ class ZenithAgent:
 
     def _initialize_model(self) -> genai.GenerativeModel:
         safety_settings = {
-            HarmCategory.HARM_CATEGORY_HARASSMENT:
-                HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            HarmCategory.HARM_CATEGORY_HATE_SPEECH:
-                HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT:
-                HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT:
-                HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
         }
 
         generation_config = {
@@ -51,12 +49,22 @@ class ZenithAgent:
             "response_mime_type": "text/plain",
         }
 
-        logger.info(f"Initializing model: {self.config.MODEL_NAME}")
+        # Enforce Strict Grounding Rules
+        grounding_instruction = (
+            "\n\n[REGRA DE GROUNDING]\n"
+            "Use a Ferramenta de Busca APENAS para verificar fatos recentes, modelos novos "
+            "ou bibliotecas atualizadas. Para metodologia de criação de prompts, use "
+            "EXCLUSIVAMENTE sua Base de Conhecimento Interna (os 10 documentos)."
+        )
+        final_system_instruction = self.system_instruction + grounding_instruction
+
+        logger.info(f"Initializing model: {self.config.MODEL_NAME} with Google Search")
         return genai.GenerativeModel(
             model_name=self.config.MODEL_NAME,
             safety_settings=safety_settings,
             generation_config=generation_config,
-            system_instruction=self.system_instruction
+            system_instruction=final_system_instruction,
+            tools="google_search_retrieval",
         )
 
     def start_chat(self):
@@ -80,8 +88,17 @@ class ZenithAgent:
 
         # 3. Execution (The actual LLM call)
         logger.info("Sending message to Gemini API...")
+
+        # RAG Integration
+        context = self.knowledge_base.retrieve(user_input)
+        if context:
+            logger.info("Enriching prompt with RAG context.")
+            final_prompt = f"Contexto Relevante do Manual:\n{context}\n\nPergunta do Usuário:\n{user_input}"
+        else:
+            final_prompt = user_input
+
         try:
-            response = self.chat_session.send_message(user_input)
+            response = self.chat_session.send_message(final_prompt)
             logger.info("Response received successfully.")
 
             # 4. Self-Evaluation (The Judge) - Post-processing

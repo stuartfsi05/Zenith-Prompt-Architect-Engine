@@ -3,65 +3,59 @@
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-Proprietary-red)
 ![Status](https://img.shields.io/badge/status-Active-green)
+![RAG](https://img.shields.io/badge/RAG-Enabled-purple)
 
-**Zenith** is a high-performance, modular autonomous agent engine designed to orchestrate complex generative AI workflows using Google's Gemini API. It serves as the foundational runtime for the **TCRE-A Protocol**, providing a secure and robust environment for prompt engineering, execution, and evaluation.
+**Zenith** is a high-performance, modular autonomous agent engine designed to orchestrate complex generative AI workflows using Google's Gemini API. It has been evolved into a **Hybrid RAG Engine**, combining strict internal knowledge retrieval with grounded external search capabilities.
 
-> ℹ️ **Open Core Edition:** This repository runs in **Demo Mode** by default. It utilizes a streamlined protocol (`v. Lite`) to demonstrate the engine's orchestration capabilities and architectural patterns without accessing the proprietary TCRE-A Knowledge Base reserved for the Enterprise edition.
+## 🧠 Core Capabilities
 
----
+### 1. RAG (Retrieval-Augmented Generation)
+Zenith is equipped with a dedicated "Knowledge Base". It can ingest authoritative documents (Markdown/Text) and use them as the primary source of truth for methodology and logic.
+-   **Engine**: LangChain + ChromaDB
+-   **Embeddings**: Google Generative AI Embeddings
+-   **Ingestion**: Automated script to chunk and index documents.
 
-## 🏗 Project Architecture
+### 2. Google Search Grounding (Strict Mode)
+The engine implements a **Strict Grounding Protocol** to prevent hallucinations and maintain methodological integrity:
+-   **External Search**: Used *exclusively* for verifying recent facts, new libraries, or current events.
+-   **Internal Knowledge**: Used *exclusively* for core logic, prompt engineering methodology, and strategic reasoning.
 
-Zenith is built on **Clean Architecture** principles, utilizing a modular **Orchestrator Pattern** to manage the lifecycle of generative tasks. The system is designed to be deterministic, auditable, and secure by default.
-
-### Workflow Pipeline
-
-The engine follows a strict execution protocol for every request:
-
-`Input` → **Strategic Analysis** (FDU) → **Semantic Validation** (SIC) → **Execution** (LLM) → **Self-Correction** (The Judge) → `Output`
-
-### Core Components
-
-- **`src/core/agent.py` (The Orchestrator):**
-  Acts as a **Facade**. It abstracts the complexity of the underlying subsystems, managing the flow of data between analysis, validation, and execution modules.
-
-- **`src/core/analyzer.py` (Strategic Module):**
-  Implements the **Unified Decision Framework (FDU)**. It decomposes raw user intent into structured task vectors (Nature, Complexity, Quality Requirements).
-
-- **`src/core/validator.py` (Guardrails):**
-  Enforces **Semantic Integrity Constraints (SIC)**. A logical gatekeeper that validates the alignment of the intended strategy against safety protocols.
-
-- **`src/core/judge.py` (Constitutional AI):**
-  An internal feedback loop implementation. It evaluates the generated output against a strict quality rubric to simulate self-reflection.
-
-- **`src/core/config.py`:**
-  A Singleton-based configuration manager using Python `dataclasses`. It enforces strict environment variable validation (Fail-fast strategy).
-
-- **`src/utils/loader.py` (Security Core):**
-  Implements a **Secure Fallback Protocol**. It specifically checks for the existence of the proprietary production prompt (`data/prompts/*`). If not found, it seamlessly degrades to "Demo Mode", ensuring IP is never exposed.
-
-- **`src/utils/logger.py`:**
-  Centralized logging infrastructure using `rich.logging` for structured debugging and monitoring.
+### 3. Modular Architecture
+The codebase follows strict **Clean Architecture** principles and is fully **PEP-8 Compliant**:
+-   `src/core`: The brain (Agent, Analyzer, Knowledge Base).
+-   `src/scripts`: Operational tools (Ingestion).
+-   `src/utils`: Support systems (Logging, Security).
 
 ---
 
-## 🧩 Design Patterns Used
+## 🛠 Project Structure
 
-- **Facade Pattern:** Simplifies the interface to the complex subsystem of agents.
-- **Strategy Pattern:** Allows for dynamic selection of prompting strategies based on input.
-- **Dependency Injection:** System instructions are injected, facilitating testing and modularity.
-- **Circuit Breaker/Fallback:** The Loader ensures business continuity even when secure assets are missing.
+```text
+Zenith/
+├── data/
+│   ├── chroma_db/       # Vector Database (The Memory)
+│   └── prompts/         # System Instructions (The Personality)
+├── knowledge_base/      # Drop your .md/.txt manuals here
+├── src/
+│   ├── core/
+│   │   ├── agent.py     # Central Orchestrator
+│   │   ├── knowledge.py # RAG Handler
+│   │   └── ...
+│   ├── scripts/
+│   │   └── ingest.py    # Memory Builder
+│   └── main.py          # Entry Point
+└── requirements.txt
+```
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
+-   Python 3.10+
+-   Google AI Studio API Key
 
-- Python 3.10 or higher
-- A Google Account (for Gemini API)
-
-### Installation Guide
+### Installation
 
 1.  **Clone the repository:**
     ```bash
@@ -69,58 +63,41 @@ The engine follows a strict execution protocol for every request:
     cd Zenith-Prompt-Architect-Engine
     ```
 
-2.  **Set up a Virtual Environment (Highly Recommended):**
-    * **Windows:**
-        ```bash
-        python -m venv venv
-        .\venv\Scripts\activate
-        ```
-    * **Mac/Linux:**
-        ```bash
-        python3 -m venv venv
-        source venv/bin/activate
-        ```
-
-3.  **Install dependencies:**
+2.  **Install Dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
 
-4.  **Configure Environment:**
-    * Copy the example configuration:
-        ```bash
-        cp .env.example .env
-        ```
-    * **Get your API Key:** Visit [Google AI Studio](https://aistudio.google.com/), generate a free API Key.
-    * **Update `.env`:** Open the file and paste your key:
-        ```ini
-        GOOGLE_API_KEY=AIzaSy...YourKeyHere
-        ```
+3.  **Configure Environment:**
+    -   Create a `.env` file (see `.env.example`).
+    -   Add your `GOOGLE_API_KEY`.
+    -   Set `SYSTEM_PROMPT_PATH=data/prompts/system_instruction.txt` (or your preferred file).
 
-### Usage
+### 🧠 Building the "Brain" (RAG)
+Before running Zenith, you must teach it your manual:
+1.  Place your `.md` or `.txt` files in the `knowledge_base/` folder.
+2.  Run the ingestion script:
+    ```bash
+    python -m src.scripts.ingest
+    ```
+    *This creates the Vector Database in `data/chroma_db`.*
 
-Run the application via the CLI entry point:
-
+### ▶️ Usage
+Run the main engine:
 ```bash
 python -m src.main
 ```
 
-You will be greeted by the Zenith Interface. Type your query to interact with the agent. The system will automatically detect the environment and load the appropriate protocol (Demo vs. Enterprise).
-
-Type `exit` or `quit` to terminate the session.
-
 ---
 
-## 🔒 Security & IP Protection
+## 🔒 Security & Grounding Rules
 
-Zenith is designed with IP protection as a first-class citizen.
-
-1.  **Environment Isolation:** All sensitive keys are managed via `.env` files, strictly excluded from version control.
-2.  **Sanitized Fallback:** The `loader.py` module prevents `FileNotFoundError` by falling back to a sanitized sample prompt if the proprietary system instruction is missing.
+Zenith operates under the **TCRE-A Protocol** variants.
+A hardcoded injection in `src/core/agent.py` ensures:
+> "Use a Ferramenta de Busca APENAS para verificar fatos recentes... Para metodologia... use EXCLUSIVAMENTE sua Base de Conhecimento Interna."
 
 ---
 
 ## 📜 License
-
 Copyright © 2025. All Rights Reserved.
-This software is proprietary and confidential. Unauthorized copying, transfer, or reproduction is strictly prohibited.
+This software is proprietary and confidential.

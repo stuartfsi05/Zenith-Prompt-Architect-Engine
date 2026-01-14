@@ -35,9 +35,7 @@ def load_system_prompt(filepath: str) -> str:
 
     # Fallback Logic
     if sample_path.exists():
-        logger.warning(
-            "⚠️  RUNNING IN DEMO MODE: Using sample system instruction. ⚠️"
-        )
+        logger.warning("⚠️  RUNNING IN DEMO MODE: Using sample system instruction. ⚠️")
         try:
             return sample_path.read_text(encoding="utf-8")
         except Exception as e:

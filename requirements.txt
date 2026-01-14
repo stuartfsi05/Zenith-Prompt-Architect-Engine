@@ -1,3 +1,6 @@
 google-generativeai
 python-dotenv
 rich
+langchain-google-genai
+langchain-community
+chromadb
