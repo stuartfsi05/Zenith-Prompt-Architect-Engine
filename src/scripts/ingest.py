@@ -2,7 +2,16 @@ import os
 
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
+
+# Graceful Degradation
+try:
+    from langchain_chroma import Chroma
+
+    CHROMA_AVAILABLE = True
+except ImportError:
+    Chroma = None
+    CHROMA_AVAILABLE = False
+
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from src.core.config import Config
 from src.utils.logger import setup_logger
@@ -33,6 +42,15 @@ def run_ingestion() -> bool:
     if not os.path.exists(knowledge_dir):
         logger.error(f"Directory not found: {knowledge_dir}")
         return False
+
+    if not CHROMA_AVAILABLE:
+        logger.warning(
+            "⚠️ ChromaDB unavailable (Python 3.14?). Skipping Vector Store creation."
+        )
+        logger.info(
+            "✅ Ingestion considered 'Successful' (Hybrid Search will rely on BM25)."
+        )
+        return True
 
     # 2. Load Documents
     logger.info("Scanning for .md and .txt files...")

@@ -4,9 +4,6 @@ import google.generativeai as genai
 from typing import Dict, Any
 from src.core.config import Config
 
-# Constants for the Analyzer
-ANALYZER_MODEL_NAME = "gemini-3-flash-preview"
-
 
 class StrategicAnalyzer:
     """
@@ -20,7 +17,7 @@ class StrategicAnalyzer:
 
         # Initialize a lightweight, fast model for routing
         self.model = genai.GenerativeModel(
-            model_name=ANALYZER_MODEL_NAME, system_instruction=self._get_system_prompt()
+            model_name=self.config.MODEL_NAME, system_instruction=self._get_system_prompt()
         )
         self.logger = logging.getLogger("StrategicAnalyzer")
 

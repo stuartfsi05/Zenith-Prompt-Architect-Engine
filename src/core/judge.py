@@ -4,10 +4,6 @@ import google.generativeai as genai
 from typing import Dict, Any
 from src.core.config import Config
 
-# Constants
-JUDGE_MODEL_NAME = "gemini-3-flash-preview"
-
-
 class TheJudge:
     """
     Implements the Self-Evaluation Module (Constitutional AI).
@@ -21,7 +17,7 @@ class TheJudge:
 
         # Initialize the Judge Model
         self.model = genai.GenerativeModel(
-            model_name=JUDGE_MODEL_NAME, system_instruction=self._get_system_prompt()
+            model_name=self.config.MODEL_NAME, system_instruction=self._get_system_prompt()
         )
 
     def _get_system_prompt(self) -> str:

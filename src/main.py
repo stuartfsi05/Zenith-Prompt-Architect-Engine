@@ -1,5 +1,6 @@
 import sys
 import io
+import os
 
 # Force UTF-8 encoding for stdout and stderr
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
