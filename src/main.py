@@ -14,6 +14,11 @@ from src.core.config import Config  # noqa: E402
 from src.core.agent import ZenithAgent  # noqa: E402
 from src.utils.loader import load_system_prompt  # noqa: E402
 from src.utils.logger import setup_logger  # noqa: E402
+from src.scripts.ingest import run_ingestion  # noqa: E402
+from src.utils.bootstrapper import (  # noqa: E402
+    check_knowledge_updates,
+    save_knowledge_hash,
+)
 
 # Initialize Console and Logger
 console = Console()
@@ -46,6 +51,20 @@ def main():
         console.print(f"[bold red]Unexpected Error:[/bold red] {e}")
         logger.exception("Failed to load configuration")
         sys.exit(1)
+
+    # 1.1. Memory Bootstrapping (Automatic Ingestion)
+    knowledge_dir = "knowledge_base"  # Relative path valid for check
+    console.print("[bold blue]🔄 Verificando integridade da Base de Conhecimento...[/bold blue]")
+    
+    if check_knowledge_updates(knowledge_dir):
+        console.print("[bold yellow]📂 Novos documentos detectados. Atualizando cérebro do Zenith...[/bold yellow]")
+        if run_ingestion():
+            save_knowledge_hash(knowledge_dir)
+            console.print("[bold green]✅ Memória atualizada com sucesso.[/bold green]")
+        else:
+            console.print("[bold red]❌ Falha na atualização da memória. Verifique os logs.[/bold red]")
+    else:
+        console.print("[dim]⚡ Base de conhecimento (RAG) sincronizada.[/dim]")
 
     # 2. Load System Prompt
     try:

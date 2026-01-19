@@ -10,7 +10,11 @@ from src.utils.logger import setup_logger
 logger = setup_logger("IngestScript")
 
 
-def main():
+def run_ingestion() -> bool:
+    """
+    Runs the ingestion process: Loads docs, splits text, creates vector store.
+    Returns True if successful, False otherwise.
+    """
     config = Config.load()
 
     # 1. Configuration
@@ -19,7 +23,7 @@ def main():
 
     if not os.path.exists(knowledge_dir):
         logger.error(f"Directory not found: {knowledge_dir}")
-        return
+        return False
 
     # 2. Load Documents
     logger.info("Scanning for .md and .txt files...")
@@ -38,7 +42,7 @@ def main():
 
     if not documents:
         logger.warning("No documents found to ingest.")
-        return
+        return False
 
     # 3. Split Text
     text_splitter = RecursiveCharacterTextSplitter(
@@ -58,13 +62,13 @@ def main():
         Chroma.from_documents(
             documents=chunks, embedding=embeddings, persist_directory=persist_dir
         )
-        # db.persist() # In newer langchain versions, persist is automatic or handled differently, but basic usage usually auto-saves or we just let it be.
-
         logger.info(f"Success! Knowledge Base saved to {persist_dir}")
+        return True
 
     except Exception as e:
         logger.error(f"Error creating Vector Store: {e}")
+        return False
 
 
 if __name__ == "__main__":
-    main()
+    run_ingestion()
