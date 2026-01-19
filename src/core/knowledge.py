@@ -1,6 +1,7 @@
 import os
 import glob
 import logging
+import pickle
 from typing import List, Tuple
 from rank_bm25 import BM25Okapi
 from langchain_community.vectorstores import Chroma
@@ -23,6 +24,7 @@ class StrategicKnowledgeBase:
     def __init__(self, config: Config):
         self.config = config
         self.persist_directory = os.path.join(os.getcwd(), "data", "chroma_db")
+        self.bm25_cache_path = os.path.join(os.getcwd(), "data", "bm25_index.pkl")
         self.knowledge_dir = os.path.join(os.getcwd(), "knowledge_base")
         
         self.embeddings = GoogleGenerativeAIEmbeddings(
@@ -55,7 +57,20 @@ class StrategicKnowledgeBase:
             logger.warning(f"⚠️ No Vector DB found at {self.persist_directory}")
 
     def _build_bm25_index(self):
-        """Builds in-memory BM25 index from raw markdown files for keyword search."""
+        """Builds in-memory BM25 index or loads from cache."""
+        # 1. Try Loading from Cache
+        if os.path.exists(self.bm25_cache_path):
+            try:
+                with open(self.bm25_cache_path, "rb") as f:
+                    data = pickle.load(f)
+                    self.bm25_index = data["index"]
+                    self.bm25_corpus = data["corpus"]
+                logger.info(f"✅ BM25 Index loaded from cache ({len(self.bm25_corpus)} chunks).")
+                return
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to load BM25 cache: {e}. Rebuilding...")
+
+        # 2. Rebuild Index
         try:
             files = glob.glob(os.path.join(self.knowledge_dir, "*.md"))
             documents = []
@@ -63,9 +78,7 @@ class StrategicKnowledgeBase:
             for fpath in files:
                 with open(fpath, "r", encoding="utf-8") as f:
                     content = f.read()
-                    # Naive chunking for BM25 (per paragraph/line to match loosely with granular retrieval)
-                    # For better results, this should be consistent with Vector Chunking, 
-                    # but file-level or paragraph-level is a good start for Keyword overlap.
+                    # Naive chunking for BM25
                     chunks = [p for p in content.split("\n\n") if len(p) > 50]
                     for chunk in chunks:
                         documents.append({"content": chunk, "source": os.path.basename(fpath)})
@@ -74,7 +87,12 @@ class StrategicKnowledgeBase:
                 tokenized_corpus = [doc["content"].split() for doc in documents]
                 self.bm25_index = BM25Okapi(tokenized_corpus)
                 self.bm25_corpus = documents
-                logger.info(f"✅ BM25 Index built with {len(documents)} chunks.")
+                
+                # 3. Save to Cache
+                with open(self.bm25_cache_path, "wb") as f:
+                    pickle.dump({"index": self.bm25_index, "corpus": self.bm25_corpus}, f)
+                
+                logger.info(f"✅ BM25 Index built and cached with {len(documents)} chunks.")
             else:
                 logger.warning("⚠️ No documents found for BM25 indexing.")
                 
