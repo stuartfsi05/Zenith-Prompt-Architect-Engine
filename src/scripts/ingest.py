@@ -20,6 +20,15 @@ def run_ingestion() -> bool:
     # 1. Configuration
     knowledge_dir = os.path.join(os.getcwd(), "knowledge_base")
     persist_dir = os.path.join(os.getcwd(), "data", "chroma_db")
+    bm25_cache = os.path.join(os.getcwd(), "data", "bm25_index.pkl")
+
+    # Cache Invalidation
+    if os.path.exists(bm25_cache):
+        try:
+            os.remove(bm25_cache)
+            logger.info("🗑️ BM25 Cache invalidated.")
+        except Exception as e:
+            logger.warning(f"Failed to delete BM25 cache: {e}")
 
     if not os.path.exists(knowledge_dir):
         logger.error(f"Directory not found: {knowledge_dir}")

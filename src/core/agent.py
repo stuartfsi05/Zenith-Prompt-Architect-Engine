@@ -54,11 +54,23 @@ class ZenithAgent:
         logger.info("Session Reset.")
         self.main_session = self.model.start_chat()
 
+    def _prune_history(self):
+        """
+        Sliding Window Mechanism.
+        Maintains only the last 20 turns to prevent Context Window Overflow.
+        """
+        MAX_HISTORY = 20
+        if len(self.main_session.history) > MAX_HISTORY:
+            logger.info(f"🧹 Pruning History (Current: {len(self.main_session.history)}). Keeping last {MAX_HISTORY}.")
+            self.main_session.history = self.main_session.history[-MAX_HISTORY:]
+
     def run_analysis(self, user_input: str) -> str:
         """
         Executes the SOTA Protocol:
         Analysis -> Dynamic Prompt Injection -> Hybrid Retrieval -> Thought Process -> Execution -> Self-Correction.
         """
+        self._prune_history() # Sliding Window Cleanup
+        
         logger.info(f"Processing Input: {user_input[:50]}...")
 
         # 0. Safety Check (Input Guardrail)

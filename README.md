@@ -1,103 +1,121 @@
-# Zenith | Prompt Architect Engine
+# Zenith | Prompt Architect Engine (SOTA Edition)
 
-![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
-![License](https://img.shields.io/badge/license-Proprietary-red)
-![Status](https://img.shields.io/badge/status-Active-green)
-![RAG](https://img.shields.io/badge/RAG-Enabled-purple)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
+![Architecture SOTA](https://img.shields.io/badge/Architecture-SOTA%20FDU%202.0-purple)
+![AI Powered](https://img.shields.io/badge/AI-Gemini%20Flash%202.0-orange)
+![Status Active](https://img.shields.io/badge/Status-Operational-green)
 
-**Zenith** is a high-performance, modular autonomous agent engine designed to orchestrate complex generative AI workflows using Google's Gemini API. It has been evolved into a **Hybrid RAG Engine**, combining strict internal knowledge retrieval with grounded external search capabilities.
+**Zenith** não é apenas um chatbot. É um **Motor Cognitivo Polimórfico** de alta performance, desenhado para orquestrar fluxos de trabalho de IA complexos e autônomos.
 
-## 🧠 Core Capabilities
-
-### 1. RAG (Retrieval-Augmented Generation)
-Zenith is equipped with a dedicated "Knowledge Base". It can ingest authoritative documents (Markdown/Text) and use them as the primary source of truth for methodology and logic.
--   **Engine**: LangChain + ChromaDB
--   **Embeddings**: Google Generative AI Embeddings
--   **Ingestion**: Automated script to chunk and index documents.
-
-### 2. Google Search Grounding (Strict Mode)
-The engine implements a **Strict Grounding Protocol** to prevent hallucinations and maintain methodological integrity:
--   **External Search**: Used *exclusively* for verifying recent facts, new libraries, or current events.
--   **Internal Knowledge**: Used *exclusively* for core logic, prompt engineering methodology, and strategic reasoning.
-
-### 3. Modular Architecture
-The codebase follows strict **Clean Architecture** principles and is fully **PEP-8 Compliant**:
--   `src/core`: The brain (Agent, Analyzer, Knowledge Base).
--   `src/scripts`: Operational tools (Ingestion).
--   `src/utils`: Support systems (Logging, Security).
+Recentemente atualizado para a arquitetura **FDU 2.0 (State-of-the-Art)**, o Zenith combina o melhor da recuperação de informação (RAG Híbrido) com raciocínio profundo (Structured Chain-of-Thought) e autogestão (Self-Healing).
 
 ---
 
-## 🛠 Project Structure
+## 💎 O Que Torna o Zenith "SOTA"? (State-of-the-Art)
+
+Diferente de agentes tradicionais que "alucinam" ou perdem o contexto, o Zenith opera sobre 5 pilares fundamentais:
+
+### 1. 🧠 Hybrid Search (RAG 2.0)
+O sistema não depende apenas de vetores. Ele utiliza uma **Busca Híbrida** para garantir que nenhuma informação seja perdida:
+- **BM25 (Palavras-Chave):** Encontra termos exatos e técnicos rapidamente (cache persistente para performance).
+- **Vetores (Semântica):** Entende o conceito e o significado por trás da pergunta.
+- **Reciprocal Rank Fusion (RRF):** Funde os resultados dos dois mundos matematicamente.
+- **LLM Reranking:** Um "segundo cérebro" (Cross-Encoder) relê os top-10 resultados e escolhe apenas os 3 mais relevantes para o contexto atual.
+
+### 2. 🎭 Motor Polimórfico (Single Persistent Session)
+O Zenith "muda de pele" sem perder a memória.
+- Ele pode ser um **Investigador** em um turno, um **Programador Sênior** no próximo e um **Estrategista** no fim.
+- Tudo isso acontece dentro de uma **Sessão Persistente Única**, garantindo que o contexto da conversa flua natural e continuamente.
+
+### 3. 🚦 Roteador Cognitivo Resiliente
+Antes de responder, um sub-agente (Router) analisa sua intenção:
+- **Natureza:** É código? É texto? É planejamento?
+- **Complexidade:** Precisa de RAG? Precisa de CoT (Chain-of-Thought)?
+- **Resiliência:** Se o roteador falhar, ele aumenta a temperatura (criatividade) e tenta novamente antes de desistir.
+
+### 4. 🔗 Structured Chain-of-Thought (CoT)
+O Zenith é **forçado** a pensar antes de agir.
+Todas as respostas complexas são precedidas por tags `<thinking>...</thinking>`, onde o agente planeja, critica a si mesmo e verifica fatos antes de gerar a resposta final para o usuário.
+
+### 5. ❤️‍🩹 Self-Healing Loop (Autocorreção)
+Um módulo "Juiz" (The Judge) avalia silenciosamente cada resposta gerada.
+- Se a nota for baixa (< 80/100), o Zenith **auto-rejeita** a resposta, lê o feedback do juiz e tenta gerar uma versão melhorada, *antes* de mostrar qualquer coisa ao usuário.
+
+### 6. 🖼️ Janela Deslizante de Contexto (Optimization)
+Para evitar custos explosivos e erros de token, o Zenith mantém na memória ativa apenas as últimas **20 trocas de mensagens**, descartando automaticamente o que for irrelevante ("Sliding Window").
+
+---
+
+## 🛠 Arquitetura do Projeto
+
+O código segue os princípios de **Clean Architecture** e **PEP-8**:
 
 ```text
 Zenith/
 ├── data/
-│   ├── chroma_db/       # Vector Database (The Memory)
-│   └── prompts/         # System Instructions (The Personality)
-├── knowledge_base/      # Drop your .md/.txt manuals here
+│   ├── chroma_db/       # Memória Vetorial (Semântica)
+│   ├── bm25_index.pkl   # Memória de Palavras-chave (Rápida)
+│   └── prompts/         # Instruções de Sistema
+├── knowledge_base/      # Seus Manuais (.md/.txt) vão aqui
 ├── src/
 │   ├── core/
-│   │   ├── agent.py     # Central Orchestrator
-│   │   ├── knowledge.py # RAG Handler
-│   │   └── ...
+│   │   ├── agent.py     # Orquestrador SOTA (O Cérebro)
+│   │   ├── analyzer.py  # Roteador Cognitivo
+│   │   ├── knowledge.py # Motor de Busca Híbrida
+│   │   ├── validation.py# Guardrails de Segurança
+│   │   └── judge.py     # Módulo de Autoavaliação
 │   ├── scripts/
-│   │   └── ingest.py    # Memory Builder
-│   └── main.py          # Entry Point
+│   │   └── ingest.py    # Ingestão de Dados Automatizada
+│   └── main.py          # Ponto de Entrada
 └── requirements.txt
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Como Iniciar
 
-### Prerequisites
--   Python 3.10+
--   Google AI Studio API Key
+### Pré-requisitos
+- Python 3.10 ou superior
+- Uma chave de API do Google AI Studio (`GOOGLE_API_KEY`)
 
-### Installation
+### Instalação
 
-1.  **Clone the repository:**
+1.  **Clone o repositório:**
     ```bash
     git clone https://github.com/stuartfsi05/Zenith-Prompt-Architect-Engine.git
     cd Zenith-Prompt-Architect-Engine
     ```
 
-2.  **Install Dependencies:**
+2.  **Instale as dependências:**
     ```bash
     pip install -r requirements.txt
     ```
 
-3.  **Configure Environment:**
-    -   Create a `.env` file (see `.env.example`).
-    -   Add your `GOOGLE_API_KEY`.
-    -   Set `SYSTEM_PROMPT_PATH=data/prompts/system_instruction.txt` (or your preferred file).
+3.  **Configure o Ambiente:**
+    - Crie um arquivo `.env` na raiz.
+    - Adicione: `GOOGLE_API_KEY=sua_chave_aqui`
+    - (Opcional) Ajuste o `MODEL_NAME` para `gemini-3-flash-preview` para máxima performance.
 
-### 🧠 Building the "Brain" (RAG)
-Before running Zenith, you must teach it your manual:
-1.  Place your `.md` or `.txt` files in the `knowledge_base/` folder.
-2.  Run the ingestion script:
+### 🧠 Treinando o Cérebro (Ingestão)
+
+1.  Coloque seus arquivos de conhecimento (`.pdf`, `.md`, `.txt`) na pasta `knowledge_base/`.
+2.  Inicie o programa. O sistema detectará mudanças e fará a ingestão **automaticamente**:
     ```bash
-    python -m src.scripts.ingest
+    python -m src.main
     ```
-    *This creates the Vector Database in `data/chroma_db`.*
-
-### ▶️ Usage
-Run the main engine:
-```bash
-python -m src.main
-```
+    *(Nota: Isso criará o banco vetorial e o índice BM25 otimizado).*
 
 ---
 
-## 🔒 Security & Grounding Rules
+## 🛡️ Segurança e Guardrails
 
-Zenith operates under the **TCRE-A Protocol** variants.
-A hardcoded injection in `src/core/agent.py` ensures:
-> "Use a Ferramenta de Busca APENAS para verificar fatos recentes... Para metodologia... use EXCLUSIVAMENTE sua Base de Conhecimento Interna."
+O Zenith implementa o protocolo **Semantic Validator**:
+- **Bloqueio de PII:** Tenta detectar chaves de API ou cartões de crédito vazados.
+- **Estrutura:** Garante que o Roteador sempre responda em JSON válido.
+- **Grounding:** Prioriza a Base de Conhecimento Interna sobre alucinações.
 
 ---
 
-## 📜 License
-Copyright © 2025. All Rights Reserved.
-This software is proprietary and confidential.
+## 📜 Licença
+Proprietário e Confidencial. Todos os direitos reservados.
+Desenvolvido como projeto de pesquisa em Agentes Autônomos Avançados.
