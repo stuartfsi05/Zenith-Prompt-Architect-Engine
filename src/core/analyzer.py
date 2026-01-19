@@ -75,39 +75,45 @@ class StrategicAnalyzer:
     def analyze_intent(self, user_input: str) -> Dict[str, Any]:
         """
         Analyzes the user input and returns a structured classification.
+        Implements a Cyclic Retry Mechanism with Progressive Temperature.
         """
         self.logger.info("Executing Strategic Analysis (Cognitive Router)...")
+        
+        max_retries = 2
+        temperatures = [0.1, 0.4, 0.7]
 
-        try:
-            # Generate the analysis
-            response = self.model.generate_content(
-                f"INPUT DO USUÁRIO: {user_input}",
-                generation_config={
-                    "temperature": 0.0,
-                    "response_mime_type": "application/json",
-                },
-            )
+        for attempt in range(max_retries + 1):
+            current_temp = temperatures[attempt]
+            
+            try:
+                # Dynamic Configuration for Retry
+                response = self.model.generate_content(
+                    f"INPUT DO USUÁRIO: {user_input}",
+                    generation_config={
+                        "temperature": current_temp,
+                        "response_mime_type": "application/json",
+                    },
+                )
+                
+                if not response.text:
+                    raise ValueError("Empty response from Analyzer")
 
-            raw_text = response.text.strip()
+                # Parse JSON
+                analysis_json = json.loads(response.text)
+                self.logger.info(f"Analysis successful (Temp: {current_temp}): {analysis_json.get('natureza')}")
+                return analysis_json
 
-            # Sanitize code blocks if present (though response_mime_type should handle it)
-            if raw_text.startswith("```json"):
-                raw_text = raw_text[7:]
-            if raw_text.startswith("```"):
-                raw_text = raw_text[3:]
-            if raw_text.endswith("```"):
-                raw_text = raw_text[:-3]
+            except (json.JSONDecodeError, ValueError) as e:
+                self.logger.warning(
+                    f"Router Analysis Failed (Attempt {attempt+1}/{max_retries+1}) | "
+                    f"Temp: {current_temp} | Error: {e}"
+                )
+            except Exception as e:
+                self.logger.critical(f"Critical Router Error: {e}")
+                break
 
-            result = json.loads(raw_text)
-
-            self.logger.info(
-                f"Analysis complete: {result.get('natureza')} / {result.get('complexidade')}"
-            )
-            return result
-
-        except Exception as e:
-            self.logger.error(f"Analysis Failed: {str(e)}. Using Fallback.")
-            return self._get_fallback_response(user_input)
+        self.logger.error("All router retries failed. Activating Fallback Protocol.")
+        return self._get_fallback_response(user_input)
 
     def _get_fallback_response(self, user_input: str) -> Dict[str, Any]:
         """
