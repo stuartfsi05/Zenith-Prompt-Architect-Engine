@@ -37,7 +37,7 @@ class Config:
             logger.critical("GOOGLE_API_KEY not found in environment variables.")
             raise ValueError("GOOGLE_API_KEY is required. Please check your .env file.")
 
-        model_name = os.getenv("MODEL_NAME", "gemini-2.5-flash")
+        model_name = os.getenv("MODEL_NAME", "gemini-3-flash-preview")
 
         try:
             temperature = float(os.getenv("TEMPERATURE", "0.1"))
