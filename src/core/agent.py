@@ -149,13 +149,50 @@ class ZenithAgent:
             final_prompt = user_input
 
         try:
+            # Initial Execution
             response = session.send_message(final_prompt)
-            logger.info("Response received successfully.")
+            response_text = response.text
+            logger.info("Initial response received. Entering Quality Assurance Loop...")
 
-            # 5. Self-Evaluation (The Judge) - Post-processing
-            self.judge.evaluate(user_input, response.text)
+            # 5. Self-Healing Loop (Refinement)
+            MIN_SCORE_THRESHOLD = 80
+            MAX_RETRIES = 2
+            attempt = 0
 
-            return response.text
+            while attempt <= MAX_RETRIES:
+                # 5.1. Evaluate
+                evaluation = self.judge.evaluate(user_input, response_text)
+                score = evaluation.get("score", 0)
+                feedback = evaluation.get("feedback", "No feedback.")
+                needs_refinement = evaluation.get("needs_refinement", False)
+
+                logger.info(f"Quality Check (Attempt {attempt}): Score={score} | Needs Refinement={needs_refinement}")
+
+                # 5.2. Success Condition
+                if score >= MIN_SCORE_THRESHOLD and not needs_refinement:
+                    logger.info("✅ Quality Threshold Met. Delivering response.")
+                    return response_text
+
+                # 5.3. Retry Condition check
+                if attempt >= MAX_RETRIES:
+                    logger.warning(f"❌ Max retries reached with low score ({score}). Delivering with warning.")
+                    return f"⚠️ [Aviso de Qualidade: Score {score}/100] O Zenith tentou refinar esta resposta, mas ela pode não atender aos padrões de excelência.\n\n{response_text}"
+
+                # 5.4. Execution of Refinement
+                logger.warning(f"⚠️ Quality Failed. Loop Refinement Triggered. Feedback: {feedback}")
+                
+                refinement_prompt = (
+                    f"Sua resposta anterior foi rejeitada pelo Juiz de Qualidade (Score: {score}/100).\n"
+                    f"Feedback Crítico: {feedback}\n"
+                    f"Ação: Reescreva a resposta corrigindo EXATAMENTE esses pontos. Mantenha a persona e o formato."
+                )
+
+                # Send feedback to the same session chain
+                response = session.send_message(refinement_prompt)
+                response_text = response.text
+                attempt += 1
+
+            return response_text
 
         except Exception as e:
             logger.error(f"Error during API call: {e}")
