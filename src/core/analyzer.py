@@ -7,6 +7,7 @@ from src.core.config import Config
 # Constants for the Analyzer
 ANALYZER_MODEL_NAME = "gemini-3-flash-preview"
 
+
 class StrategicAnalyzer:
     """
     Implements the Cognitive Router (Strategic Analysis Module) following Framework FDU 2.0.
@@ -16,11 +17,10 @@ class StrategicAnalyzer:
     def __init__(self):
         self.config = Config.load()
         genai.configure(api_key=self.config.GOOGLE_API_KEY)
-        
+
         # Initialize a lightweight, fast model for routing
         self.model = genai.GenerativeModel(
-            model_name=ANALYZER_MODEL_NAME,
-            system_instruction=self._get_system_prompt()
+            model_name=ANALYZER_MODEL_NAME, system_instruction=self._get_system_prompt()
         )
         self.logger = logging.getLogger("StrategicAnalyzer")
 
@@ -77,16 +77,19 @@ class StrategicAnalyzer:
         Analyzes the user input and returns a structured classification.
         """
         self.logger.info("Executing Strategic Analysis (Cognitive Router)...")
-        
+
         try:
             # Generate the analysis
             response = self.model.generate_content(
                 f"INPUT DO USUÁRIO: {user_input}",
-                generation_config={"temperature": 0.0, "response_mime_type": "application/json"}
+                generation_config={
+                    "temperature": 0.0,
+                    "response_mime_type": "application/json",
+                },
             )
-            
+
             raw_text = response.text.strip()
-            
+
             # Sanitize code blocks if present (though response_mime_type should handle it)
             if raw_text.startswith("```json"):
                 raw_text = raw_text[7:]
@@ -94,12 +97,14 @@ class StrategicAnalyzer:
                 raw_text = raw_text[3:]
             if raw_text.endswith("```"):
                 raw_text = raw_text[:-3]
-                
+
             result = json.loads(raw_text)
-            
-            self.logger.info(f"Analysis complete: {result.get('natureza')} / {result.get('complexidade')}")
+
+            self.logger.info(
+                f"Analysis complete: {result.get('natureza')} / {result.get('complexidade')}"
+            )
             return result
-            
+
         except Exception as e:
             self.logger.error(f"Analysis Failed: {str(e)}. Using Fallback.")
             return self._get_fallback_response(user_input)
@@ -113,5 +118,5 @@ class StrategicAnalyzer:
             "complexidade": "Composta",
             "prioridade": "Padrão",
             "intencao_sintetizada": f"Fallback: Processar input '{user_input[:50]}...'",
-            "strategy_selected": "Chain-of-Thought"
+            "strategy_selected": "Chain-of-Thought",
         }

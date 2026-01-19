@@ -1,4 +1,3 @@
-
 """
 Zenith Personas Repository.
 Defines the specific system instructions (Personas) for the Polymorphic Execution Pattern.
@@ -208,29 +207,30 @@ SUA MISSÃO:
 Fornecer uma resposta investigativa completa, verificando fatos, cruzando fontes e entregando um relatório de inteligência sintetizado e pronto para tomada de decisão.
 """
 
+
 class Personas:
     """
     Central repository for Zenith System Personas.
     """
-    
+
     @staticmethod
     def get_persona(nature_code: str) -> str:
         """
         Returns the appropriate system prompt based on the nature code.
-        Codes mapped: 
+        Codes mapped:
         - [C] Codificação -> ZENITH_CODE_PROMPT
         - [I] Investigação -> ZENITH_RESEARCHER_PROMPT
         - [G, R, P, E] (Geração, Raciocínio, Planejamento, Extração) -> ZENITH_ARCHITECT_PROMPT (Standard)
         """
         code = nature_code.upper()
-        
+
         # Check for Code specific keywords or initial
         if "CODIFICAÇÃO" in code or code.startswith("C"):
             return ZENITH_CODE_PROMPT
-            
+
         # Check for Investigation specific keywords or initial
         if "INVESTIGAÇÃO" in code or code.startswith("I"):
             return ZENITH_RESEARCHER_PROMPT
-            
+
         # Default to Standard Architect for everything else
         return ZENITH_ARCHITECT_PROMPT

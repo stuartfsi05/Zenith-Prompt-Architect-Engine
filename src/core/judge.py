@@ -7,6 +7,7 @@ from src.core.config import Config
 # Constants
 JUDGE_MODEL_NAME = "gemini-3-flash-preview"
 
+
 class TheJudge:
     """
     Implements the Self-Evaluation Module (Constitutional AI).
@@ -17,11 +18,10 @@ class TheJudge:
         self.config = Config.load()
         genai.configure(api_key=self.config.GOOGLE_API_KEY)
         self.logger = logging.getLogger("ZenithJudge")
-        
+
         # Initialize the Judge Model
         self.model = genai.GenerativeModel(
-            model_name=JUDGE_MODEL_NAME,
-            system_instruction=self._get_system_prompt()
+            model_name=JUDGE_MODEL_NAME, system_instruction=self._get_system_prompt()
         )
 
     def _get_system_prompt(self) -> str:
@@ -68,7 +68,7 @@ class TheJudge:
             Dict containing score and feedback.
         """
         self.logger.info("👨‍⚖️ The Judge is in session. Auditing response...")
-        
+
         prompt = f"""
         [INPUT DO USUÁRIO]
         {user_input}
@@ -80,15 +80,18 @@ class TheJudge:
         Avalie a [RESPOSTA DA IA] com base na [INPUT DO USUÁRIO] usando a Rubrica.
         Gere o JSON de saída.
         """
-        
+
         try:
             response = self.model.generate_content(
                 prompt,
-                generation_config={"temperature": 0.0, "response_mime_type": "application/json"}
+                generation_config={
+                    "temperature": 0.0,
+                    "response_mime_type": "application/json",
+                },
             )
-            
+
             raw_text = response.text.strip()
-            
+
             # Clean possible markdown formatting constraints
             if raw_text.startswith("```json"):
                 raw_text = raw_text[7:]
@@ -98,8 +101,10 @@ class TheJudge:
                 raw_text = raw_text[:-3]
 
             result = json.loads(raw_text)
-            
-            self.logger.info(f"Verdict: Score {result.get('score')} | Refinement: {result.get('needs_refinement')}")
+
+            self.logger.info(
+                f"Verdict: Score {result.get('score')} | Refinement: {result.get('needs_refinement')}"
+            )
             return result
 
         except Exception as e:
@@ -113,5 +118,5 @@ class TheJudge:
         return {
             "score": 85,
             "feedback": "Avaliação indisponível (Erro no Juiz). Qualidade assumida como Padrão.",
-            "needs_refinement": False
+            "needs_refinement": False,
         }
