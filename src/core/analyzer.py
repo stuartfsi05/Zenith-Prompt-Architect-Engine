@@ -78,13 +78,13 @@ class StrategicAnalyzer:
         Implements a Cyclic Retry Mechanism with Progressive Temperature.
         """
         self.logger.info("Executing Strategic Analysis (Cognitive Router)...")
-        
+
         max_retries = 2
         temperatures = [0.1, 0.4, 0.7]
 
         for attempt in range(max_retries + 1):
             current_temp = temperatures[attempt]
-            
+
             try:
                 # Dynamic Configuration for Retry
                 response = self.model.generate_content(
@@ -94,13 +94,15 @@ class StrategicAnalyzer:
                         "response_mime_type": "application/json",
                     },
                 )
-                
+
                 if not response.text:
                     raise ValueError("Empty response from Analyzer")
 
                 # Parse JSON
                 analysis_json = json.loads(response.text)
-                self.logger.info(f"Analysis successful (Temp: {current_temp}): {analysis_json.get('natureza')}")
+                self.logger.info(
+                    f"Analysis successful (Temp: {current_temp}): {analysis_json.get('natureza')}"
+                )
                 return analysis_json
 
             except (json.JSONDecodeError, ValueError) as e:

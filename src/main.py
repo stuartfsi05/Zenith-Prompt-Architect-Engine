@@ -62,6 +62,17 @@ def main():
         console.print(
             "[bold yellow]📂 Novos documentos detectados. Atualizando cérebro do Zenith...[/bold yellow]"
         )
+
+        # SOTA Optimization: Event-Driven Cache Invalidation
+        # Force cache deletion to prevent "Zero Blindness"
+        bm25_cache = "data/bm25_index.pkl"
+        if os.path.exists(bm25_cache):
+            try:
+                os.remove(bm25_cache)
+                console.print("[dim]🗑️ Cache BM25 invalidado para reconstrução...[/dim]")
+            except Exception as e:
+                logger.warning(f"Failed to clear cache: {e}")
+
         if run_ingestion():
             save_knowledge_hash(knowledge_dir)
             console.print("[bold green]✅ Memória atualizada com sucesso.[/bold green]")

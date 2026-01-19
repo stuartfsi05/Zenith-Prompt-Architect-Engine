@@ -28,9 +28,11 @@ class ZenithAgent:
         self.knowledge_base = StrategicKnowledgeBase(self.config)
 
         self._configure_genai()
-        
+
         # SOTA: Single Persistent Model with Tools Enabled
-        logger.info(f"Initializing SOTA Engine: {self.config.MODEL_NAME} [Tools: Search]")
+        logger.info(
+            f"Initializing SOTA Engine: {self.config.MODEL_NAME} [Tools: Search]"
+        )
         self.model = genai.GenerativeModel(
             model_name=self.config.MODEL_NAME,
             generation_config={
@@ -42,7 +44,7 @@ class ZenithAgent:
             system_instruction=self.default_system_instruction,
             tools="google_search_retrieval",
         )
-        
+
         # Persistent Session (Context Caching & Long Memory)
         self.main_session = self.model.start_chat()
 
@@ -61,7 +63,9 @@ class ZenithAgent:
         """
         MAX_HISTORY = 20
         if len(self.main_session.history) > MAX_HISTORY:
-            logger.info(f"🧹 Pruning History (Current: {len(self.main_session.history)}). Keeping last {MAX_HISTORY}.")
+            logger.info(
+                f"🧹 Pruning History (Current: {len(self.main_session.history)}). Keeping last {MAX_HISTORY}."
+            )
             self.main_session.history = self.main_session.history[-MAX_HISTORY:]
 
     def run_analysis(self, user_input: str) -> str:
@@ -69,8 +73,8 @@ class ZenithAgent:
         Executes the SOTA Protocol:
         Analysis -> Dynamic Prompt Injection -> Hybrid Retrieval -> Thought Process -> Execution -> Self-Correction.
         """
-        self._prune_history() # Sliding Window Cleanup
-        
+        self._prune_history()  # Sliding Window Cleanup
+
         logger.info(f"Processing Input: {user_input[:50]}...")
 
         # 0. Safety Check (Input Guardrail)
@@ -81,16 +85,16 @@ class ZenithAgent:
         analysis_result = self.analyzer.analyze_intent(user_input)
         nature = analysis_result.get("natureza", "Raciocínio")
         complexity = analysis_result.get("complexidade", "Composta")
-        
+
         logger.info(f"Router: Nature={nature} | Complexity={complexity}")
-        
+
         # 1.1 Structural Validation
         if not self.validator.validate(analysis_result):
             logger.warning("Router validation failed. Proceeding with caution.")
 
         # 2. Dynamic Persona Injection & Thinking Enforcement (Structured CoT)
         selected_persona = Personas.get_persona(nature)
-        
+
         system_injection = (
             f"--- [SYSTEM OVERRIDE: ACTIVE PERSONA] ---\n"
             f"{selected_persona}\n\n"
@@ -99,17 +103,19 @@ class ZenithAgent:
             f"Planeje sua resposta, verifique fatos e critique sua própria lógica.\n"
             f"Apenas após o fechamento da tag </thinking>, forneça a resposta final ao usuário.\n"
         )
-        
+
         # 3. Hybrid RAG Retrieval (SOTA)
         rag_context = ""
         if complexity != "Simples":
             rag_context = self.knowledge_base.retrieve(user_input)
-            
+
         final_prompt = f"{system_injection}\n\n"
-        
+
         if rag_context:
-            final_prompt += f"--- [RELEVANT CONTEXT (Hybrid Search)] ---\n{rag_context}\n\n"
-            
+            final_prompt += (
+                f"--- [RELEVANT CONTEXT (Hybrid Search)] ---\n{rag_context}\n\n"
+            )
+
         final_prompt += f"--- [USER REQUEST] ---\n{user_input}"
 
         # 4. Execution (Persistent Session)
@@ -118,7 +124,7 @@ class ZenithAgent:
             logger.info("Executing SOTA Inference with Structured CoT...")
             response = self.main_session.send_message(final_prompt)
             response_text = response.text
-            
+
             # 5. Self-Healing Loop (Reflexion Pattern)
             MIN_SCORE_THRESHOLD = 80
             MAX_RETRIES = 2
@@ -131,7 +137,9 @@ class ZenithAgent:
                 feedback = evaluation.get("feedback", "")
                 needs_refinement = evaluation.get("needs_refinement", False)
 
-                logger.info(f"Reflexion (Att {attempt}): Score={score} | Needs Refinement={needs_refinement}")
+                logger.info(
+                    f"Reflexion (Att {attempt}): Score={score} | Needs Refinement={needs_refinement}"
+                )
 
                 # 5.2. Success Condition
                 if score >= MIN_SCORE_THRESHOLD and not needs_refinement:
@@ -150,7 +158,7 @@ class ZenithAgent:
                     f"CRITICAL FEEDBACK: {feedback}\n"
                     f"TASK: Rewrite the response leveraging your <thinking> process to fix these errors."
                 )
-                
+
                 response = self.main_session.send_message(refinement_prompt)
                 response_text = response.text
                 attempt += 1
