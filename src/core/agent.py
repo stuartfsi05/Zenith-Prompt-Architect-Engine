@@ -1,4 +1,5 @@
 import google.generativeai as genai
+from google.generativeai import protos
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from src.core.config import Config
 from src.utils.logger import setup_logger
@@ -42,7 +43,7 @@ class ZenithAgent:
                 "max_output_tokens": 8192,
             },
             system_instruction=self.default_system_instruction,
-            tools="google_search_retrieval",
+            tools=[protos.Tool(google_search={})],
         )
 
         # Persistent Session (Context Caching & Long Memory)
