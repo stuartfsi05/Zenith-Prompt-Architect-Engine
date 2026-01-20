@@ -1,6 +1,6 @@
-import re
 import logging
-from typing import Dict, Any, List
+import re
+from typing import Any, Dict, List
 
 logger = logging.getLogger("SemanticValidator")
 

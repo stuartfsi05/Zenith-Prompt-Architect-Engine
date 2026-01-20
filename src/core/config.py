@@ -1,6 +1,8 @@
 import os
 from dataclasses import dataclass
+
 from dotenv import load_dotenv
+
 from src.utils.logger import setup_logger
 
 # Initialize logger for config module

@@ -1,12 +1,12 @@
-import sys
 import os
+import sys
 
 # Add src to path
 sys.path.append(os.path.join(os.getcwd(), "src"))
 sys.path.append(os.getcwd())
 
-from src.core.config import Config
 from src.core.agent import ZenithAgent
+from src.core.config import Config
 
 
 def verify_sota():

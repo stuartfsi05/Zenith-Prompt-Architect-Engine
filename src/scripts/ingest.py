@@ -13,6 +13,7 @@ except ImportError:
     CHROMA_AVAILABLE = False
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
 from src.core.config import Config
 from src.utils.logger import setup_logger
 
