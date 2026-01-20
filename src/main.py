@@ -2,9 +2,15 @@ import sys
 import io
 import os
 
+import warnings
+
 # Force UTF-8 encoding for stdout and stderr
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
+
+# Suppress Pydantic V1/Python 3.14 compatibility warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="langchain_core")
+warnings.filterwarnings("ignore", message=".*Core Pydantic V1 functionality.*")
 
 from rich.console import Console  # noqa: E402
 from rich.panel import Panel  # noqa: E402
