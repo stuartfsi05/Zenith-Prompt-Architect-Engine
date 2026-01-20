@@ -1,8 +1,11 @@
 import json
 import logging
+from typing import Any, Dict
+
 import google.generativeai as genai
-from typing import Dict, Any
+
 from src.core.config import Config
+
 
 class TheJudge:
     """
@@ -17,7 +20,8 @@ class TheJudge:
 
         # Initialize the Judge Model
         self.model = genai.GenerativeModel(
-            model_name=self.config.MODEL_NAME, system_instruction=self._get_system_prompt()
+            model_name=self.config.MODEL_NAME,
+            system_instruction=self._get_system_prompt(),
         )
 
     def _get_system_prompt(self) -> str:

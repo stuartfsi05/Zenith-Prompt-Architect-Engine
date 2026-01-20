@@ -1,8 +1,9 @@
-import os
 import glob
 import logging
+import os
 import pickle
 from typing import List, Tuple
+
 from rank_bm25 import BM25Okapi
 
 # Graceful Degradation: Check if ChromaDB is available
@@ -14,9 +15,9 @@ except ImportError:
     Chroma = None
     CHROMA_AVAILABLE = False
 
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
 from langchain_core.documents import Document
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 from src.core.config import Config
 from src.utils.logger import setup_logger

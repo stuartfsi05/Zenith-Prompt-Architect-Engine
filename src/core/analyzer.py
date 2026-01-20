@@ -1,7 +1,9 @@
 import json
 import logging
+from typing import Any, Dict
+
 import google.generativeai as genai
-from typing import Dict, Any
+
 from src.core.config import Config
 
 
@@ -17,7 +19,8 @@ class StrategicAnalyzer:
 
         # Initialize a lightweight, fast model for routing
         self.model = genai.GenerativeModel(
-            model_name=self.config.MODEL_NAME, system_instruction=self._get_system_prompt()
+            model_name=self.config.MODEL_NAME,
+            system_instruction=self._get_system_prompt(),
         )
         self.logger = logging.getLogger("StrategicAnalyzer")
 
