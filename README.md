@@ -3,7 +3,7 @@
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Architecture SOTA](https://img.shields.io/badge/Architecture-SOTA%20FDU%202.0-purple)
 ![AI Powered](https://img.shields.io/badge/AI-Gemini%20Flash%202.0-orange)
-![Status Active](https://img.shields.io/badge/Status-Operational-green)
+![Status Active](https://img.shields.io/badge/Status-Operational%20%E2%9C%94-brightgreen)
 
 **Zenith** não é apenas um chatbot. É um **Motor Cognitivo Polimórfico** de alta performance, desenhado para orquestrar fluxos de trabalho de IA complexos e autônomos.
 
