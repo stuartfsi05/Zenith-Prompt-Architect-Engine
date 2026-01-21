@@ -1,3 +1,4 @@
+import asyncio
 import glob
 import logging
 import os
@@ -124,9 +125,9 @@ class StrategicKnowledgeBase:
         except Exception as e:
             logger.error(f"❌ Failed to build BM25 Index: {e}")
 
-    def retrieve(self, query: str, final_k: int = 3) -> str:
+    async def retrieve_async(self, query: str, final_k: int = 3) -> str:
         """
-        Executes Hybrid Retrieval Pipeline:
+        Executes Hybrid Retrieval Pipeline (Async):
         1. Vector Search (High Semantic Recall) - Optional
         2. BM25 Search (High Keyword Precision)
         3. Reciprocal Rank Fusion (RRF)
@@ -135,21 +136,33 @@ class StrategicKnowledgeBase:
         if not self.bm25_index:
             return ""
 
-        logger.info(f"🔎 Executing Search for: '{query}'")
+        logger.info(f"🔎 Executing Async Search for: '{query}'")
+
+        # Run Vector and BM25 in parallel (simulated or real async)
+        # Chroma is usually blocking, so we wrap it if needed, or just run it.
+        # For strict non-blocking, we can wrap CPU/IO bound sync calls.
+        
+        loop = asyncio.get_running_loop()
 
         # 1. Vector Retrieval (Conditional)
         vector_docs = []
         if CHROMA_AVAILABLE and self.vector_store:
             try:
-                vector_docs = self.vector_store.similarity_search(query, k=10)
+                # Running blocking Chroma call in executor
+                vector_docs = await loop.run_in_executor(
+                    None, lambda: self.vector_store.similarity_search(query, k=10)
+                )
             except Exception as e:
                 logger.warning(f"Vector search failed: {e}")
 
-        # 2. BM25 Retrieval
+        # 2. BM25 Retrieval (CPU bound)
         tokenized_query = query.split()
-        bm25_docs = self.bm25_index.get_top_n(tokenized_query, self.bm25_corpus, n=10)
+        # Running blocking BM25 in executor
+        bm25_docs = await loop.run_in_executor(
+            None, lambda: self.bm25_index.get_top_n(tokenized_query, self.bm25_corpus, n=10)
+        )
 
-        # Normalize BM25 docs to LangChain Document format for fusion (mocking object)
+        # Normalize BM25 docs to LangChain Document format
         bm25_lc_docs = [
             Document(page_content=d["content"], metadata={"source": d["source"]})
             for d in bm25_docs
@@ -159,8 +172,8 @@ class StrategicKnowledgeBase:
         fused_results = self._reciprocal_rank_fusion(vector_docs, bm25_lc_docs, k=60)
         top_candidates = fused_results[:10]  # Take Top-10 for Re-ranking
 
-        # 4. LLM Reranking
-        final_docs = self._llm_reranking(query, top_candidates, top_n=final_k)
+        # 4. LLM Reranking (Async)
+        final_docs = await self._llm_reranking_async(query, top_candidates, top_n=final_k)
 
         return self._format_results(final_docs)
 
@@ -195,14 +208,14 @@ class StrategicKnowledgeBase:
         sorted_docs = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
         return [item["doc"] for item in sorted_docs]
 
-    def _llm_reranking(
+    async def _llm_reranking_async(
         self, query: str, candidates: List[Document], top_n: int = 3
     ) -> List[Document]:
         """
         Uses Gemini to assess relevance of each candidate against the query.
         Returns the top_n most relevant documents.
         """
-        logger.info("🧠 Performing LLM Reranking on Top-10 candidates...")
+        logger.info("🧠 Performing Async LLM Reranking on Top-10 candidates...")
 
         candidates_text = ""
         for i, doc in enumerate(candidates):
@@ -211,17 +224,17 @@ class StrategicKnowledgeBase:
         prompt = f"""
         TAREFA: Cross-Encoder Reranking
         QUERY: "{query}"
-        
+
         DOCUMENTOS CANDIDATOS:
         {candidates_text}
-        
+
         SELECIONE OS {top_n} documentos MAIS RELEVANTES para responder à query.
         Retorne APENAS um JSON com a lista de IDs em ordem de relevância.
         Exemplo: [0, 4, 1]
         """
 
         try:
-            response = self.reranker_model.generate_content(
+            response = await self.reranker_model.generate_content_async(
                 prompt,
                 generation_config={
                     "response_mime_type": "application/json",

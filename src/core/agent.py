@@ -1,11 +1,14 @@
 import google.generativeai as genai
 from google.generativeai import protos
 from google.generativeai.types import HarmBlockThreshold, HarmCategory
+import asyncio
 
 from src.core.analyzer import StrategicAnalyzer
 from src.core.config import Config
+from src.core.database import DatabaseManager
 from src.core.judge import TheJudge
 from src.core.knowledge import StrategicKnowledgeBase
+from src.core.memory import StrategicMemory
 from src.core.personas import Personas
 from src.core.validator import SemanticValidator
 from src.utils.logger import setup_logger
@@ -28,6 +31,8 @@ class ZenithAgent:
         self.validator = SemanticValidator()
         self.judge = TheJudge()
         self.knowledge_base = StrategicKnowledgeBase(self.config)
+        self.memory = StrategicMemory(self.config)
+        self.db = DatabaseManager(self.config)
 
         self._configure_genai()
 
@@ -48,32 +53,71 @@ class ZenithAgent:
         )
 
         # Persistent Session (Context Caching & Long Memory)
-        self.main_session = self.model.start_chat()
+        self.current_session_id = "default_session"
+        self.db.create_session(self.current_session_id)
+        self.start_chat(self.current_session_id)
 
     def _configure_genai(self):
         genai.configure(api_key=self.config.GOOGLE_API_KEY)
 
-    def start_chat(self):
-        """Optional: Resets the session if needed."""
-        logger.info("Session Reset.")
-        self.main_session = self.model.start_chat()
+    def start_chat(self, session_id: str = "default_session"):
+        """
+        Starts the chat session.
+        Loads history from SQLite to ensure Continuity of Self.
+        """
+        self.current_session_id = session_id
+        logger.info(f"🔄 Loading Session: {session_id}")
+        
+        # Load from DB
+        db_history = self.db.get_history(session_id)
+        
+        # Convert to Google GenAI format if needed (list of Content objects)
+        # Using raw history injection for now or simple list of dicts if library supports it
+        # The library expects [{'role': 'user', 'parts': ['text']}, ...]
+        
+        formatted_history = []
+        for turn in db_history:
+            formatted_history.append({
+                "role": turn["role"],
+                "parts": turn["parts"]
+            })
+            
+        self.main_session = self.model.start_chat(history=formatted_history)
+        logger.info(f"✅ Context Restored ({len(formatted_history)} items).")
 
     def _prune_history(self):
         """
-        Sliding Window Mechanism.
-        Maintains only the last 20 turns to prevent Context Window Overflow.
+        Sliding Window Mechanism with Semantic Compression (Smart Pruning).
+        1. Checks if history > MAX_HISTORY.
+        2. Slices off the oldest messages.
+        3. Sends them to the Memory Module for consolidation (Async).
         """
         MAX_HISTORY = 20
-        if len(self.main_session.history) > MAX_HISTORY:
+        history_len = len(self.main_session.history)
+        
+        if history_len > MAX_HISTORY:
+            prune_count = history_len - MAX_HISTORY
+            # Ensure we count pairs (User+Model) if possible, but genai logic handles it.
+            # We take the oldest 'prune_count' messages.
+            
+            items_to_prune = self.main_session.history[:prune_count]
+            
             logger.info(
-                f"🧹 Pruning History (Current: {len(self.main_session.history)}). Keeping last {MAX_HISTORY}."
+                f"🧹 Pruning History (Current: {history_len}). Archiving {len(items_to_prune)} items."
             )
-            self.main_session.history = self.main_session.history[-MAX_HISTORY:]
+            
+            # Fire-and-forget async task for memory consolidation
+            # We don't await this because pruning must be instant for the current turn.
+            asyncio.create_task(self.memory.consolidate_memory_async(items_to_prune))
+            
+            # Actually remove from history
+            self.main_session.history = self.main_session.history[prune_count:]
 
-    def run_analysis(self, user_input: str) -> str:
+    async def run_analysis_async(self, user_input: str):
         """
-        Executes the SOTA Protocol:
+        Executes the SOTA Protocol (Async Generator):
         Analysis -> Dynamic Prompt Injection -> Hybrid Retrieval -> Thought Process -> Execution -> Self-Correction.
+        Feature: Streaming Response & Speculative Parallelism.
         """
         self._prune_history()  # Sliding Window Cleanup
 
@@ -81,10 +125,28 @@ class ZenithAgent:
 
         # 0. Safety Check (Input Guardrail)
         if not self.validator.validate_user_input(user_input):
-            return "⚠️ Input blocked by Safety Protocols."
+            yield "⚠️ Input blocked by Safety Protocols."
+            return
 
-        # 1. Strategic Analysis (Cognitive Router)
-        analysis_result = self.analyzer.analyze_intent(user_input)
+        # 1. Speculative Parallelism: Run Analyzer and Knowledge Retrieval concurrently
+        # We start both tasks immediately.
+        import asyncio
+
+        logger.info("🚀 Launching Speculative Parallelism (Analyzer + RAG)...")
+        analyzer_task = asyncio.create_task(self.analyzer.analyze_intent_async(user_input))
+        
+        # We start retrieval immediately, even before knowing complexity.
+        # If complexity ends up being "Simple", we might discard the result or just not use it,
+        # but this ensures zero-latency for complex queries.
+        knowledge_task = asyncio.create_task(self.knowledge_base.retrieve_async(user_input))
+
+        # Await Analyzer first to determine strategy
+        try:
+            analysis_result = await analyzer_task
+        except Exception as e:
+            logger.error(f"Analyzer failed: {e}")
+            analysis_result = self.analyzer._get_fallback_response(user_input)
+
         nature = analysis_result.get("natureza", "Raciocínio")
         complexity = analysis_result.get("complexidade", "Composta")
 
@@ -106,12 +168,31 @@ class ZenithAgent:
             f"Apenas após o fechamento da tag </thinking>, forneça a resposta final ao usuário.\n"
         )
 
-        # 3. Hybrid RAG Retrieval (SOTA)
+        # 3. Hybrid RAG Retrieval (SOTA) - Await the result of the speculative task
         rag_context = ""
+        # Only use RAG if complexity is not Simples, but we already launched the task.
+        # If we don't need it, we just ignore the result (or cancel the task if we want to save resources, but completion is safer).
         if complexity != "Simples":
-            rag_context = self.knowledge_base.retrieve(user_input)
+            try:
+                rag_context = await knowledge_task
+            except Exception as e:
+                logger.error(f"Knowledge Retrieval failed: {e}")
+                rag_context = ""
+        else:
+            # If simple, we don't need the RAG result, but we should ensure the background task cleans up
+            # However, awaiting it is cleaner to avoid detached task warnings, or we can just let it finish.
+            # For this focused implementation without task management overhead, let's just await it and discard.
+            try:
+                await knowledge_task
+            except:
+                pass
 
         final_prompt = f"{system_injection}\n\n"
+
+        # Inject Progressive Semantic Memory (Master Summary + User Profile)
+        memory_context = self.memory.get_context_injection()
+        if memory_context:
+            final_prompt += f"{memory_context}\n"
 
         if rag_context:
             final_prompt += (
@@ -119,54 +200,98 @@ class ZenithAgent:
             )
 
         final_prompt += f"--- [USER REQUEST] ---\n{user_input}"
+        
+        # LOG USER INTERACTION
+        self.db.log_interaction(self.current_session_id, "user", user_input)
 
-        # 4. Execution (Persistent Session)
+        # 4. Execution (Persistent Session) with Streaming
+        full_response_text = ""
+        metadata = {}
+        
         try:
-            # Initial Call
-            logger.info("Executing SOTA Inference with Structured CoT...")
-            response = self.main_session.send_message(final_prompt)
-            response_text = response.text
+            logger.info("Executing SOTA Inference with Streaming...")
+            
+            # Streaming Generate
+            stream = await self.main_session.send_message_async(final_prompt, stream=True)
+            
+            async for chunk in stream:
+                if chunk.text:
+                    yield chunk.text
+                    full_response_text += chunk.text
 
-            # 5. Self-Healing Loop (Reflexion Pattern)
+            # 5. Self-Healing Loop (Reflexion Pattern) - Post-Stream Verification
+            
             MIN_SCORE_THRESHOLD = 80
-            MAX_RETRIES = 2
+            MAX_RETRIES = 2 
             attempt = 0
 
-            while attempt <= MAX_RETRIES:
-                # 5.1. Evaluate (The Judge)
-                evaluation = self.judge.evaluate(user_input, response_text)
-                score = evaluation.get("score", 0)
-                feedback = evaluation.get("feedback", "")
-                needs_refinement = evaluation.get("needs_refinement", False)
+            # First evaluation
+            evaluation = await self.judge.evaluate_async(user_input, full_response_text)
+            score = evaluation.get("score", 0)
+            feedback = evaluation.get("feedback", "")
+            needs_refinement = evaluation.get("needs_refinement", False)
 
-                logger.info(
-                    f"Reflexion (Att {attempt}): Score={score} | Needs Refinement={needs_refinement}"
-                )
+            # Metadata for Analytics
+            metadata["score"] = score
+            metadata["feedback"] = feedback
+            metadata["refinement_attempts"] = 0
 
-                # 5.2. Success Condition
-                if score >= MIN_SCORE_THRESHOLD and not needs_refinement:
-                    return response_text
+            if score < MIN_SCORE_THRESHOLD or needs_refinement:
+                logger.warning(f"⚠️ Triggering Self-Correction. Score: {score}. Feedback: {feedback}")
+                
+                yield f"\n\n[dim]⚠️ Auditoria de Qualidade detectou falhas (Score: {score}). Refinando...[/dim]\n\n"
 
-                # 5.3. Retry Limit
-                if attempt >= MAX_RETRIES:
-                    logger.warning(f"❌ Max retries reached ({score}).")
-                    return f"⚠️ [SOTA Warning: Low Confidence (Score {score})]\n{response_text}"
-
-                # 5.4. Refinement Prompt
-                logger.warning(f"⚠️ Triggering Self-Correction. Feedback: {feedback}")
-                refinement_prompt = (
-                    f"--- [SELF-CORRECTION PROTOCOL] ---\n"
-                    f"Analyze your previous response. The Quality Judge rejected it (Score: {score}).\n"
-                    f"CRITICAL FEEDBACK: {feedback}\n"
-                    f"TASK: Rewrite the response leveraging your <thinking> process to fix these errors."
-                )
-
-                response = self.main_session.send_message(refinement_prompt)
-                response_text = response.text
-                attempt += 1
-
-            return response_text
+                while attempt < MAX_RETRIES:
+                     refinement_prompt = (
+                        f"--- [SELF-CORRECTION PROTOCOL] ---\n"
+                        f"Analyze your previous response. The Quality Judge rejected it (Score: {score}).\n"
+                        f"CRITICAL FEEDBACK: {feedback}\n"
+                        f"TASK: Rewrite the response leveraging your <thinking> process to fix these errors. Keep it concise."
+                    )
+                     
+                     response = await self.main_session.send_message_async(refinement_prompt, stream=True)
+                     
+                     full_response_text = "" # Reset for new capture
+                     async for chunk in response:
+                         if chunk.text:
+                             yield chunk.text
+                             full_response_text += chunk.text
+                     
+                     attempt += 1
+                     metadata["refinement_attempts"] = attempt
+                     
+                     evaluation = await self.judge.evaluate_async(user_input, full_response_text)
+                     score = evaluation.get("score", 0)
+                     metadata["score"] = score # Update final score
+                     
+                     if score >= MIN_SCORE_THRESHOLD:
+                         break 
+                     
+                     feedback = evaluation.get("feedback", "")
+            
+                     evaluation = await self.judge.evaluate_async(user_input, full_response_text)
+                     score = evaluation.get("score", 0)
+                     metadata["score"] = score # Update final score
+                     
+                     if score >= MIN_SCORE_THRESHOLD:
+                         break 
+                     
+                     feedback = evaluation.get("feedback", "")
+            
+            # 6. Memory Extraction (Async Background Task)
+            asyncio.create_task(self.memory.extract_entities_async(user_input, full_response_text))
 
         except Exception as e:
             logger.error(f"SOTA Execution Error: {e}")
-            return f"⚠️ **System Error**: {str(e)}"
+            yield f"\n⚠️ **System Error**: {str(e)}"
+            metadata["error"] = str(e)
+        
+        finally:
+            # LOG MODEL INTERACTION (Guaranteed)
+            if full_response_text:
+                self.db.log_interaction(
+                    self.current_session_id, 
+                    "model", 
+                    full_response_text, 
+                    metadata=metadata
+                )

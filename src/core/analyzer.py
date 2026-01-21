@@ -72,9 +72,9 @@ class StrategicAnalyzer:
         Analise o input e gere o JSON.
         """
 
-    def analyze_intent(self, user_input: str) -> Dict[str, Any]:
+    async def analyze_intent_async(self, user_input: str) -> Dict[str, Any]:
         """
-        Analyzes the user input and returns a structured classification.
+        Analyzes the user input and returns a structured classification (Async).
         Implements a Cyclic Retry Mechanism with Progressive Temperature.
         """
         self.logger.info("Executing Strategic Analysis (Cognitive Router)...")
@@ -86,8 +86,8 @@ class StrategicAnalyzer:
             current_temp = temperatures[attempt]
 
             try:
-                # Dynamic Configuration for Retry
-                response = self.model.generate_content(
+                # Dynamic Configuration for Retry (Async)
+                response = await self.model.generate_content_async(
                     f"INPUT DO USUÁRIO: {user_input}",
                     generation_config={
                         "temperature": current_temp,

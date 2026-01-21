@@ -1,3 +1,4 @@
+import asyncio
 import io
 import os
 import sys
@@ -15,6 +16,7 @@ from rich.console import Console  # noqa: E402
 from rich.markdown import Markdown  # noqa: E402
 from rich.panel import Panel  # noqa: E402
 from rich.prompt import Prompt  # noqa: E402
+from rich.live import Live  # noqa: E402
 
 from src.core.agent import ZenithAgent  # noqa: E402
 from src.core.config import Config  # noqa: E402
@@ -36,14 +38,14 @@ def print_header():
     console.print(
         Panel.fit(
             "[bold cyan]Zenith | Prompt Architect Engine[/bold cyan]\n"
-            "[dim]Advanced Autonomous Agent Interface[/dim]",
+            "[dim]Advanced Autonomous Agent Interface (Async SOTA)[/dim]",
             border_style="cyan",
         )
     )
 
 
-def main():
-    """Main entry point for the application."""
+async def main():
+    """Main entry point for the application (Async)."""
     print_header()
 
     # 1. Load Configuration
@@ -59,35 +61,48 @@ def main():
         sys.exit(1)
 
     # 1.1. Memory Bootstrapping (Automatic Ingestion)
+    # Note: Ingestion is still sync for now as it's a startup task.
     knowledge_dir = "knowledge_base"  # Relative path valid for check
     console.print(
         "[bold blue]🔄 Verificando integridade da Base de Conhecimento...[/bold blue]"
     )
 
-    if check_knowledge_updates(knowledge_dir):
-        console.print(
-            "[bold yellow]📂 Novos documentos detectados. Atualizando cérebro do Zenith...[/bold yellow]"
-        )
+    loop = asyncio.get_running_loop()
 
-        # SOTA Optimization: Event-Driven Cache Invalidation
-        # Force cache deletion to prevent "Zero Blindness"
-        bm25_cache = "data/bm25_index.pkl"
-        if os.path.exists(bm25_cache):
-            try:
-                os.remove(bm25_cache)
-                console.print("[dim]🗑️ Cache BM25 invalidado para reconstrução...[/dim]")
-            except Exception as e:
-                logger.warning(f"Failed to clear cache: {e}")
-
-        if run_ingestion():
-            save_knowledge_hash(knowledge_dir)
-            console.print("[bold green]✅ Memória atualizada com sucesso.[/bold green]")
-        else:
+    # Offload blocking IO to executor
+    try:
+        should_update = await loop.run_in_executor(None, check_knowledge_updates, knowledge_dir)
+        
+        if should_update:
             console.print(
-                "[bold red]❌ Falha na atualização da memória. Verifique os logs.[/bold red]"
+                "[bold yellow]📂 Novos documentos detectados. Atualizando cérebro do Zenith...[/bold yellow]"
             )
-    else:
-        console.print("[dim]⚡ Base de conhecimento (RAG) sincronizada.[/dim]")
+
+            # SOTA Optimization: Event-Driven Cache Invalidation
+            bm25_cache = "data/bm25_index.pkl"
+            if os.path.exists(bm25_cache):
+                try:
+                    os.remove(bm25_cache)
+                    console.print("[dim]🗑️ Cache BM25 invalidado para reconstrução...[/dim]")
+                except Exception as e:
+                    logger.warning(f"Failed to clear cache: {e}")
+            
+            # Run ingestion in executor
+            ingestion_success = await loop.run_in_executor(None, run_ingestion)
+
+            if ingestion_success:
+                await loop.run_in_executor(None, save_knowledge_hash, knowledge_dir)
+                console.print("[bold green]✅ Memória atualizada com sucesso.[/bold green]")
+            else:
+                console.print(
+                    "[bold red]❌ Falha na atualização da memória. Verifique os logs.[/bold red]"
+                )
+        else:
+            console.print("[dim]⚡ Base de conhecimento (RAG) sincronizada.[/dim]")
+    except Exception as e:
+         logger.error(f"Startup error: {e}")
+         console.print(f"[bold red]Startup Verification Failed:[/bold red] {e}")
+         # Continue anyway
 
     # 2. Load System Prompt
     try:
@@ -115,6 +130,7 @@ def main():
     # 4. Interactive Chat Loop
     while True:
         try:
+            # Note: Prompt.ask is synchronous (blocking), but fine for CLI input loop
             user_input = Prompt.ask("[bold cyan]User[/bold cyan]")
 
             if user_input.lower() in ("exit", "quit"):
@@ -124,19 +140,27 @@ def main():
             if not user_input.strip():
                 continue
 
-            with console.status(
-                "[bold cyan]Analyzing...[/bold cyan]", spinner="aesthetic"
-            ):
-                response = agent.run_analysis(user_input)
+            console.print() # Spacing
+            
+            # Prepare UI for Streaming
+            accumulated_text = ""
+            
+            with Live(
+                Panel("", title="[bold magenta]Zenith Agent (Thinking...)[/bold magenta]", border_style="magenta"),
+                refresh_per_second=10,
+                auto_refresh=True
+            ) as live:
+                
+                async for chunk in agent.run_analysis_async(user_input):
+                    accumulated_text += chunk
+                    live.update(
+                        Panel(
+                            Markdown(accumulated_text),
+                            title="[bold magenta]Zenith Agent[/bold magenta]",
+                            border_style="magenta",
+                        )
+                    )
 
-            console.print(
-                Panel(
-                    Markdown(response),
-                    title="[bold magenta]Zenith Agent[/bold magenta]",
-                    border_style="magenta",
-                    expand=False,
-                )
-            )
             console.print()  # Empty line for spacing
 
         except KeyboardInterrupt:
@@ -148,4 +172,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        
+    asyncio.run(main())
