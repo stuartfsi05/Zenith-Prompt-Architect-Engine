@@ -13,8 +13,8 @@ class StrategicAnalyzer:
     Responsible for classifying user intent, complexity, and resource priority before execution.
     """
 
-    def __init__(self):
-        self.config = Config.load()
+    def __init__(self, config: Config):
+        self.config = config
         genai.configure(api_key=self.config.GOOGLE_API_KEY)
 
         # Initialize a lightweight, fast model for routing

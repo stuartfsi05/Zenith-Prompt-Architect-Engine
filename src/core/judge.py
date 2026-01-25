@@ -13,8 +13,8 @@ class TheJudge:
     Evaluates the quality of the Agent's output against the User's input.
     """
 
-    def __init__(self):
-        self.config = Config.load()
+    def __init__(self, config: Config):
+        self.config = config
         genai.configure(api_key=self.config.GOOGLE_API_KEY)
         self.logger = logging.getLogger("ZenithJudge")
 

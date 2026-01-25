@@ -27,9 +27,10 @@ class ZenithAgent:
         self.default_system_instruction = system_instruction
 
         # Initialize Sub-Modules (The Architecture)
-        self.analyzer = StrategicAnalyzer()
+        # Initialize Sub-Modules (The Architecture)
+        self.analyzer = StrategicAnalyzer(self.config)
         self.validator = SemanticValidator()
-        self.judge = TheJudge()
+        self.judge = TheJudge(self.config)
         self.knowledge_base = StrategicKnowledgeBase(self.config)
         self.memory = StrategicMemory(self.config)
         self.db = DatabaseManager(self.config)
@@ -55,7 +56,7 @@ class ZenithAgent:
         # Persistent Session (Context Caching & Long Memory)
         self.current_session_id = "default_session"
         self.db.create_session(self.current_session_id)
-        self.start_chat(self.current_session_id)
+        # self.start_chat(self.current_session_id)  <-- Removed to avoid double init (called in main.py)
 
     def _configure_genai(self):
         genai.configure(api_key=self.config.GOOGLE_API_KEY)
