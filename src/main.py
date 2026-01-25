@@ -8,14 +8,6 @@ import warnings
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
-# --- [SOTA FIX: ChromaDB & Asyncio Compatibility] ---
-try:
-    __import__("pysqlite3")
-    import sys
-    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
-except ImportError:
-    pass
-
 # Suppress Warnings
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)

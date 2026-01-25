@@ -6,15 +6,7 @@ import pickle
 from typing import List, Tuple
 
 from rank_bm25 import BM25Okapi
-
-# Graceful Degradation: Check if ChromaDB is available
-try:
-    from langchain_chroma import Chroma
-
-    CHROMA_AVAILABLE = True
-except ImportError:
-    Chroma = None
-    CHROMA_AVAILABLE = False
+from langchain_community.vectorstores import FAISS
 
 import google.generativeai as genai
 from langchain_core.documents import Document
@@ -30,12 +22,11 @@ class StrategicKnowledgeBase:
     """
     SOTA Knowledge Retrieval Module.
     Implements Hybrid Search (Vector + BM25) with Reciprocal Rank Fusion & LLM Reranking.
-    Gracefully degrades to BM25-Only if Vector DB (Chroma) is unavailable.
     """
 
     def __init__(self, config: Config):
         self.config = config
-        self.persist_directory = os.path.join(os.getcwd(), "data", "chroma_db")
+        self.persist_directory = os.path.join(os.getcwd(), "data", "vector_store")
         self.bm25_cache_path = os.path.join(os.getcwd(), "data", "bm25_index.pkl")
         self.knowledge_dir = os.path.join(os.getcwd(), "knowledge_base")
 
@@ -55,20 +46,15 @@ class StrategicKnowledgeBase:
         self.reranker_model = genai.GenerativeModel(self.config.MODEL_NAME)
 
     def _load_vector_db(self):
-        """Loads the existing Chroma vector store."""
-        if not CHROMA_AVAILABLE:
-            logger.warning(
-                "⚠️ ChromaDB not available (Env Incompatible). Running in BM25-Only Mode."
-            )
-            return
-
-        if os.path.exists(self.persist_directory):
+        """Loads the existing FAISS vector store."""
+        if os.path.exists(os.path.join(self.persist_directory, "index.faiss")):
             try:
-                self.vector_store = Chroma(
-                    persist_directory=self.persist_directory,
-                    embedding_function=self.embeddings,
+                self.vector_store = FAISS.load_local(
+                    folder_path=self.persist_directory,
+                    embeddings=self.embeddings,
+                    allow_dangerous_deserialization=True # Required for locally trusted pickle
                 )
-                logger.info(f"✅ Vector DB loaded from {self.persist_directory}")
+                logger.info(f"✅ FAISS Vector DB loaded from {self.persist_directory}")
             except Exception as e:
                 logger.error(f"❌ Failed to load Vector DB: {e}")
         else:
@@ -146,9 +132,11 @@ class StrategicKnowledgeBase:
 
         # 1. Vector Retrieval (Conditional)
         vector_docs = []
-        if CHROMA_AVAILABLE and self.vector_store:
+        # 1. Vector Retrieval (Conditional)
+        vector_docs = []
+        if self.vector_store:
             try:
-                # Running blocking Chroma call in executor
+                # Running blocking FAISS call in executor
                 vector_docs = await loop.run_in_executor(
                     None, lambda: self.vector_store.similarity_search(query, k=10)
                 )
