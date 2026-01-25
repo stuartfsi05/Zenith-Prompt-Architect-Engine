@@ -51,7 +51,7 @@ class Config:
             "SYSTEM_PROMPT_PATH", "data/prompts/system_instruction.sample.md"
         )
 
-        logger.info(f"Configuration loaded. Model: {model_name}")
+        # logger.info(f"Configuration loaded. Model: {model_name}")
 
         return cls(
             GOOGLE_API_KEY=api_key,
