@@ -1,8 +1,8 @@
-import sqlite3
 import json
 import os
+import sqlite3
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 from src.core.config import Config
 from src.utils.logger import setup_logger
@@ -12,8 +12,7 @@ logger = setup_logger("DatabaseManager")
 
 class DatabaseManager:
     """
-    Manages SQLite storage for Session Persistence and Analytics.
-    Implements a robust schema for immutable history.
+    Manages SQLite storage for sessions and interactions.
     """
 
     def __init__(self, config: Config):
@@ -35,8 +34,8 @@ class DatabaseManager:
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                
-                # Table: Interactions (The immutable log)
+
+                # Table: Interactions
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS interactions (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,11 +43,11 @@ class DatabaseManager:
                         role TEXT NOT NULL,
                         content TEXT NOT NULL,
                         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        metadata TEXT -- JSON string for expenses, judge scores, etc.
+                        metadata TEXT
                     )
                 """)
-                
-                # Table: Sessions (Metadata for continuity)
+
+                # Table: Sessions
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS sessions (
                         id TEXT PRIMARY KEY,
@@ -56,9 +55,8 @@ class DatabaseManager:
                         last_active DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
-                
+
                 conn.commit()
-                # logger.info("✅ Database tables confirmed.")
         except Exception as e:
             logger.critical(f"Database Initialization Failed: {e}")
 
@@ -70,36 +68,47 @@ class DatabaseManager:
                 cursor.execute("""
                     INSERT INTO sessions (id, created_at, last_active)
                     VALUES (?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET last_active = excluded.last_active
+                    ON CONFLICT(id)
+                    DO UPDATE SET last_active = excluded.last_active
                 """, (session_id, datetime.now(), datetime.now()))
                 conn.commit()
         except Exception as e:
             logger.error(f"Failed to create/update session: {e}")
 
-    def log_interaction(self, session_id: str, role: str, content: str, metadata: Optional[Dict] = None):
+    def log_interaction(
+        self,
+        session_id: str,
+        role: str,
+        content: str,
+        metadata: Optional[Dict] = None
+    ):
         """Logs a single turn (User or Model) to the database."""
         try:
             meta_json = json.dumps(metadata) if metadata else "{}"
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO interactions (session_id, role, content, timestamp, metadata)
+                    INSERT INTO interactions
+                    (session_id, role, content, timestamp, metadata)
                     VALUES (?, ?, ?, ?, ?)
-                """, (session_id, role, content, datetime.now(), meta_json))
-                
-                # Update session activity
-                cursor.execute("UPDATE sessions SET last_active = ? WHERE id = ?", (datetime.now(), session_id))
-                
+                """, (
+                    session_id, role, content, datetime.now(), meta_json
+                ))
+
+                cursor.execute(
+                    "UPDATE sessions SET last_active = ? WHERE id = ?",
+                    (datetime.now(), session_id)
+                )
+
                 conn.commit()
-                # logger.info(f"📝 Interaction logged ({role}).")
         except Exception as e:
             logger.error(f"Failed to log interaction: {e}")
 
-    def get_history(self, session_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_history(
+        self, session_id: str, limit: int = 50
+    ) -> List[Dict[str, Any]]:
         """
-        Retrieves the chat history for a session, ordered chronologically.
-        Returns a list of dicts compatible with Generative AI history format if needed,
-        or just raw data.
+        Retrieves the chat history for a session.
         """
         history = []
         try:
@@ -107,23 +116,26 @@ class DatabaseManager:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT role, content, metadata 
-                    FROM interactions 
-                    WHERE session_id = ? 
+                    SELECT role, content, metadata
+                    FROM interactions
+                    WHERE session_id = ?
                     ORDER BY id ASC
                     LIMIT ?
                 """, (session_id, limit))
-                
+
                 rows = cursor.fetchall()
                 for row in rows:
                     history.append({
                         "role": row["role"],
-                        "parts": [row["content"]], # Matching Google GenAI format partially
-                        "metadata": json.loads(row["metadata"]) if row["metadata"] else {}
+                        "parts": [row["content"]],
+                        "metadata": (
+                            json.loads(row["metadata"])
+                            if row["metadata"] else {}
+                        )
                     })
         except Exception as e:
             logger.error(f"Failed to retrieve history: {e}")
-        
+
         return history
 
     def get_analytics_summary(self) -> Dict[str, Any]:
@@ -134,8 +146,10 @@ class DatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute("SELECT COUNT(*) FROM interactions")
                 stats["total_interactions"] = cursor.fetchone()[0]
-                
-                cursor.execute("SELECT COUNT(DISTINCT session_id) FROM sessions")
+
+                cursor.execute(
+                    "SELECT COUNT(DISTINCT session_id) FROM sessions"
+                )
                 stats["total_sessions"] = cursor.fetchone()[0]
         except Exception as e:
             logger.error(f"Analytics failure: {e}")

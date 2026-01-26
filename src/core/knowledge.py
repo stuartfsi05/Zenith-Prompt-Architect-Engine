@@ -1,16 +1,15 @@
 import asyncio
 import glob
-import logging
+import json
 import os
 import pickle
-from typing import List, Tuple
-
-from rank_bm25 import BM25Okapi
-from langchain_community.vectorstores import FAISS
+from typing import List
 
 import google.generativeai as genai
+from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from rank_bm25 import BM25Okapi
 
 from src.core.config import Config
 from src.utils.logger import setup_logger
@@ -20,29 +19,32 @@ logger = setup_logger("KnowledgeBase")
 
 class StrategicKnowledgeBase:
     """
-    SOTA Knowledge Retrieval Module.
-    Implements Hybrid Search (Vector + BM25) with Reciprocal Rank Fusion & LLM Reranking.
+    Knowledge Retrieval Module.
+    Combines Vector Search and BM25 with RRF and LLM Reranking.
     """
 
     def __init__(self, config: Config):
         self.config = config
-        self.persist_directory = os.path.join(os.getcwd(), "data", "vector_store")
-        self.bm25_cache_path = os.path.join(os.getcwd(), "data", "bm25_index.pkl")
+        self.persist_directory = os.path.join(
+            os.getcwd(), "data", "vector_store"
+        )
+        self.bm25_cache_path = os.path.join(
+            os.getcwd(), "data", "bm25_index.pkl"
+        )
         self.knowledge_dir = os.path.join(os.getcwd(), "knowledge_base")
 
         self.embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001", google_api_key=self.config.GOOGLE_API_KEY
+            model="models/embedding-001",
+            google_api_key=self.config.GOOGLE_API_KEY
         )
 
-        # Initialize Retrievers
         self.vector_store = None
         self.bm25_index = None
-        self.bm25_corpus = []  # Stores (content, metadata)
+        self.bm25_corpus = []
 
         self._load_vector_db()
         self._build_bm25_index()
 
-        # Lightweight model for Reranking
         self.reranker_model = genai.GenerativeModel(self.config.MODEL_NAME)
 
     def _load_vector_db(self):
@@ -52,17 +54,18 @@ class StrategicKnowledgeBase:
                 self.vector_store = FAISS.load_local(
                     folder_path=self.persist_directory,
                     embeddings=self.embeddings,
-                    allow_dangerous_deserialization=True # Required for locally trusted pickle
+                    allow_dangerous_deserialization=True
                 )
-                logger.info(f"✅ FAISS Vector DB loaded from {self.persist_directory}")
+                logger.info(
+                    f"FAISS Vector DB loaded from {self.persist_directory}"
+                )
             except Exception as e:
-                logger.error(f"❌ Failed to load Vector DB: {e}")
+                logger.error(f"Failed to load Vector DB: {e}")
         else:
-            logger.warning(f"⚠️ No Vector DB found at {self.persist_directory}")
+            logger.warning(f"No Vector DB found at {self.persist_directory}")
 
     def _build_bm25_index(self):
         """Builds in-memory BM25 index or loads from cache."""
-        # 1. Try Loading from Cache
         if os.path.exists(self.bm25_cache_path):
             try:
                 with open(self.bm25_cache_path, "rb") as f:
@@ -70,13 +73,15 @@ class StrategicKnowledgeBase:
                     self.bm25_index = data["index"]
                     self.bm25_corpus = data["corpus"]
                 logger.info(
-                    f"✅ BM25 Index loaded from cache ({len(self.bm25_corpus)} chunks)."
+                    f"BM25 Index loaded from cache "
+                    f"({len(self.bm25_corpus)} chunks)."
                 )
                 return
             except Exception as e:
-                logger.warning(f"⚠️ Failed to load BM25 cache: {e}. Rebuilding...")
+                logger.warning(
+                    f"Failed to load BM25 cache: {e}. Rebuilding..."
+                )
 
-        # 2. Rebuild Index
         try:
             files = glob.glob(os.path.join(self.knowledge_dir, "*.md"))
             documents = []
@@ -84,84 +89,80 @@ class StrategicKnowledgeBase:
             for fpath in files:
                 with open(fpath, "r", encoding="utf-8") as f:
                     content = f.read()
-                    # Naive chunking for BM25
                     chunks = [p for p in content.split("\n\n") if len(p) > 50]
                     for chunk in chunks:
-                        documents.append(
-                            {"content": chunk, "source": os.path.basename(fpath)}
-                        )
+                        documents.append({
+                            "content": chunk,
+                            "source": os.path.basename(fpath)
+                        })
 
             if documents:
-                tokenized_corpus = [doc["content"].split() for doc in documents]
+                tokenized_corpus = [
+                    doc["content"].split() for doc in documents
+                ]
                 self.bm25_index = BM25Okapi(tokenized_corpus)
                 self.bm25_corpus = documents
 
-                # 3. Save to Cache
                 with open(self.bm25_cache_path, "wb") as f:
-                    pickle.dump(
-                        {"index": self.bm25_index, "corpus": self.bm25_corpus}, f
-                    )
+                    pickle.dump({
+                        "index": self.bm25_index,
+                        "corpus": self.bm25_corpus
+                    }, f)
 
                 logger.info(
-                    f"✅ BM25 Index built and cached with {len(documents)} chunks."
+                    f"BM25 Index built/cached with {len(documents)} chunks."
                 )
             else:
-                logger.warning("⚠️ No documents found for BM25 indexing.")
+                logger.warning("No documents found for BM25 indexing.")
 
         except Exception as e:
-            logger.error(f"❌ Failed to build BM25 Index: {e}")
+            logger.error(f"Failed to build BM25 Index: {e}")
 
     async def retrieve_async(self, query: str, final_k: int = 3) -> str:
         """
-        Executes Hybrid Retrieval Pipeline (Async):
-        1. Vector Search (High Semantic Recall) - Optional
-        2. BM25 Search (High Keyword Precision)
-        3. Reciprocal Rank Fusion (RRF)
-        4. LLM Agentic Reranking (Context Precision)
+        Executes Hybrid Retrieval Pipeline (Async).
         """
         if not self.bm25_index:
             return ""
 
-        logger.info(f"🔎 Executing Async Search for: '{query}'")
+        logger.info(f"Executing Async Search for: '{query}'")
 
-        # Run Vector and BM25 in parallel (simulated or real async)
-        # Chroma is usually blocking, so we wrap it if needed, or just run it.
-        # For strict non-blocking, we can wrap CPU/IO bound sync calls.
-        
         loop = asyncio.get_running_loop()
 
-        # 1. Vector Retrieval (Conditional)
-        vector_docs = []
-        # 1. Vector Retrieval (Conditional)
         vector_docs = []
         if self.vector_store:
             try:
-                # Running blocking FAISS call in executor
                 vector_docs = await loop.run_in_executor(
-                    None, lambda: self.vector_store.similarity_search(query, k=10)
+                    None,
+                    lambda: self.vector_store.similarity_search(query, k=10)
                 )
             except Exception as e:
                 logger.warning(f"Vector search failed: {e}")
 
-        # 2. BM25 Retrieval (CPU bound)
         tokenized_query = query.split()
-        # Running blocking BM25 in executor
         bm25_docs = await loop.run_in_executor(
-            None, lambda: self.bm25_index.get_top_n(tokenized_query, self.bm25_corpus, n=10)
+            None,
+            lambda: self.bm25_index.get_top_n(
+                tokenized_query, self.bm25_corpus, n=10
+            )
         )
 
-        # Normalize BM25 docs to LangChain Document format
         bm25_lc_docs = [
-            Document(page_content=d["content"], metadata={"source": d["source"]})
+            Document(
+                page_content=d["content"],
+                metadata={"source": d["source"]}
+            )
             for d in bm25_docs
         ]
 
-        # 3. Reciprocal Rank Fusion
-        fused_results = self._reciprocal_rank_fusion(vector_docs, bm25_lc_docs, k=60)
-        top_candidates = fused_results[:10]  # Take Top-10 for Re-ranking
+        fused_results = self._reciprocal_rank_fusion(
+            vector_docs, bm25_lc_docs, k=60
+        )
+        top_candidates = fused_results[:10]
 
-        # 4. LLM Reranking (Async)
-        final_docs = await self._llm_reranking_async(query, top_candidates, top_n=final_k)
+        final_docs = await self._llm_reranking_async(
+            query, top_candidates, top_n=final_k
+        )
 
         return self._format_results(final_docs)
 
@@ -174,26 +175,24 @@ class StrategicKnowledgeBase:
         """
         scores = {}
 
-        # Helper to hash document content for deduplication
         def get_doc_id(doc):
             return hash(doc.page_content)
 
-        # Process List A (Vector)
         for rank, doc in enumerate(list_a):
             doc_id = get_doc_id(doc)
             if doc_id not in scores:
                 scores[doc_id] = {"doc": doc, "score": 0}
             scores[doc_id]["score"] += 1 / (k + rank)
 
-        # Process List B (BM25)
         for rank, doc in enumerate(list_b):
             doc_id = get_doc_id(doc)
             if doc_id not in scores:
                 scores[doc_id] = {"doc": doc, "score": 0}
             scores[doc_id]["score"] += 1 / (k + rank)
 
-        # Sort by score descending
-        sorted_docs = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
+        sorted_docs = sorted(
+            scores.values(), key=lambda x: x["score"], reverse=True
+        )
         return [item["doc"] for item in sorted_docs]
 
     async def _llm_reranking_async(
@@ -203,11 +202,13 @@ class StrategicKnowledgeBase:
         Uses Gemini to assess relevance of each candidate against the query.
         Returns the top_n most relevant documents.
         """
-        logger.info("🧠 Performing Async LLM Reranking on Top-10 candidates...")
+        logger.info("Performing Async LLM Reranking on Top-10 candidates...")
 
         candidates_text = ""
         for i, doc in enumerate(candidates):
-            candidates_text += f"[ID: {i}] Content: {doc.page_content[:300]}...\n\n"
+            candidates_text += (
+                f"[ID: {i}] Content: {doc.page_content[:300]}...\n\n"
+            )
 
         prompt = f"""
         TAREFA: Cross-Encoder Reranking
@@ -229,21 +230,21 @@ class StrategicKnowledgeBase:
                     "temperature": 0.0,
                 },
             )
-            import json
 
             selected_ids = json.loads(response.text)
 
-            # Filter and order documents
             reranked_docs = []
             for idx in selected_ids:
                 if 0 <= idx < len(candidates):
                     reranked_docs.append(candidates[idx])
 
-            logger.info(f"✅ Reranking selected IDs: {selected_ids}")
+            logger.info(f"Reranking selected IDs: {selected_ids}")
             return reranked_docs if reranked_docs else candidates[:top_n]
 
         except Exception as e:
-            logger.warning(f"⚠️ Reranking failed ({e}). Returning Top-{top_n} from RRF.")
+            logger.warning(
+                f"Reranking failed ({e}). Returning Top-{top_n} from RRF."
+            )
             return candidates[:top_n]
 
     def _format_results(self, docs: List[Document]) -> str:

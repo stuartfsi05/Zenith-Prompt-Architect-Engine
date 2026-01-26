@@ -9,15 +9,13 @@ from src.core.config import Config
 
 class StrategicAnalyzer:
     """
-    Implements the Cognitive Router (Strategic Analysis Module) following Framework FDU 2.0.
-    Responsible for classifying user intent, complexity, and resource priority before execution.
+    Analyzes user intent to determine complexity and required strategy.
     """
 
     def __init__(self, config: Config):
         self.config = config
         genai.configure(api_key=self.config.GOOGLE_API_KEY)
 
-        # Initialize a lightweight, fast model for routing
         self.model = genai.GenerativeModel(
             model_name=self.config.MODEL_NAME,
             system_instruction=self._get_system_prompt(),
@@ -26,58 +24,51 @@ class StrategicAnalyzer:
 
     def _get_system_prompt(self) -> str:
         """
-        Returns the specific system prompt for the FDU 2.0 Framework classification.
+        Returns the system prompt for intent classification.
         """
         return """
-        ATUE COMO: Um Roteador Cognitivo (Cognitive Router) especialista no Framework FDU 2.0.
-        SUA MISSÃO: Analisar o input do usuário e classificar a intenção para direcionar a execução correta.
+        ATUE COMO: Um Roteador Cognitivo especialista.
+        SUA MISSÃO: Analisar o input do usuário e classificar a intenção.
         
         RETORNE APENAS UM JSON VÁLIDO. NADA MAIS.
         
-        ### ESTRUTURA DE ANÁLISE (FRAMEWORK FDU 2.0)
+        ### ESTRUTURA DE ANÁLISE
         
         1. VETOR 1: NATUREZA DA TAREFA (natureza)
-           - [G] Geração: Criatividade, escrita, storytelling, poemas, copywriting.
-           - [R] Raciocínio: Lógica, análise crítica, debate, tomada de decisão, conselho.
-           - [P] Planejamento: Estruturação de passos, cronogramas, roadmaps, gestão de projetos.
-           - [E] Extração: Resumo, formatação de dados, parsing, retirar informações de texto.
-           - [C] Codificação: Escrever código, scripts, debugging, arquitetura de software, SQL.
-           - [I] Investigação: Busca factual, notícias, dados da Knowledge Base, perguntas sobre eventos.
+           - [G] Geração: Criatividade, escrita.
+           - [R] Raciocínio: Lógica, análise crítica.
+           - [P] Planejamento: Estruturação de passos.
+           - [E] Extração: Resumo, formatação de dados.
+           - [C] Codificação: Escrever código.
+           - [I] Investigação: Busca factual.
         
         2. VETOR 2: COMPLEXIDADE (complexidade)
-           - [S] Simples: Direto, Zero-Shot, sem necessidade de contexto profundo.
-           - [C] Composta: Múltiplas variáveis, exige contexto ou múltiplos passos lógicos.
-           - [A] Abstrata: Subjetivo, filosófico, ambíguo ou requer alta criatividade/nuance.
+           - [S] Simples: Direto.
+           - [C] Composta: Múltiplas variáveis.
+           - [A] Abstrata: Subjetivo.
         
         3. VETOR 3: PRIORIDADE DE RECURSOS (prioridade)
-           - [R] Rápida: Baixo custo, velocidade máxima, resposta concisa.
-           - [P] Padrão: Equilíbrio entre custo e qualidade.
-           - [E] Exaustiva: Alta qualidade, múltiplas revisões, precisão crítica, Deep Thinking.
+           - [R] Rápida
+           - [P] Padrão
+           - [E] Exaustiva
         
         ### output_schema (JSON)
         {
             "natureza": "String (ex: Geração)",
             "complexidade": "String (ex: Composta)",
             "prioridade": "String (ex: Padrão)",
-            "intencao_sintetizada": "Resumo de 1 linha do que o usuário quer",
-            "strategy_selected": "Nome da estratégia sugerida (ex: Zero-Shot, Chain-of-Thought, ReAct, Tree-of-Thoughts)"
+            "intencao_sintetizada": "Resumo de 1 linha",
+            "strategy_selected": "Nome da estratégia sugerida"
         }
-        
-        ### REGRAS DE ESTRATÉGIA
-        - Se Complexidade == "Simples" -> strategy_selected: "Zero-Shot"
-        - Se Complexidade == "Composta" -> strategy_selected: "Chain-of-Thought"
-        - Se Complexidade == "Abstrata" OU Natureza == "Planejamento" -> strategy_selected: "Tree-of-Thoughts"
-        - Se Natureza == "Investigação" -> strategy_selected: "ReAct" (Search/Action)
         
         Analise o input e gere o JSON.
         """
 
     async def analyze_intent_async(self, user_input: str) -> Dict[str, Any]:
         """
-        Analyzes the user input and returns a structured classification (Async).
-        Implements a Cyclic Retry Mechanism with Progressive Temperature.
+        Analyzes the user input and returns a structured classification.
         """
-        self.logger.info("Executing Strategic Analysis (Cognitive Router)...")
+        self.logger.info("Executing Strategic Analysis...")
 
         max_retries = 2
         temperatures = [0.1, 0.4, 0.7]
@@ -86,7 +77,6 @@ class StrategicAnalyzer:
             current_temp = temperatures[attempt]
 
             try:
-                # Dynamic Configuration for Retry (Async)
                 response = await self.model.generate_content_async(
                     f"INPUT DO USUÁRIO: {user_input}",
                     generation_config={
@@ -98,33 +88,33 @@ class StrategicAnalyzer:
                 if not response.text:
                     raise ValueError("Empty response from Analyzer")
 
-                # Parse JSON
                 analysis_json = json.loads(response.text)
                 self.logger.info(
-                    f"Analysis successful (Temp: {current_temp}): {analysis_json.get('natureza')}"
+                    f"Analysis successful (Temp: {current_temp}): "
+                    f"{analysis_json.get('natureza')}"
                 )
                 return analysis_json
 
             except (json.JSONDecodeError, ValueError) as e:
                 self.logger.warning(
-                    f"Router Analysis Failed (Attempt {attempt+1}/{max_retries+1}) | "
-                    f"Temp: {current_temp} | Error: {e}"
+                    f"Analysis Failed (Attempt {attempt + 1}/{max_retries + 1}) "
+                    f"| Temp: {current_temp} | Error: {e}"
                 )
             except Exception as e:
-                self.logger.critical(f"Critical Router Error: {e}")
+                self.logger.critical(f"Critical Analyzer Error: {e}")
                 break
 
-        self.logger.error("All router retries failed. Activating Fallback Protocol.")
+        self.logger.error("All retries failed. Activating Fallback Protocol.")
         return self._get_fallback_response(user_input)
 
     def _get_fallback_response(self, user_input: str) -> Dict[str, Any]:
         """
-        Provides a safe default layout in case of model or parsing failure.
+        Provides a safe default layout in case of failure.
         """
         return {
-            "natureza": "Raciocínio",  # Default safe assumption
+            "natureza": "Raciocínio",
             "complexidade": "Composta",
             "prioridade": "Padrão",
-            "intencao_sintetizada": f"Fallback: Processar input '{user_input[:50]}...'",
+            "intencao_sintetizada": f"Fallback: '{user_input[:50]}...'",
             "strategy_selected": "Chain-of-Thought",
         }
