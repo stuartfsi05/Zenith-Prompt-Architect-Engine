@@ -1,72 +1,61 @@
-# Zenith | Prompt Architect Engine (SOTA Edition)
+# Zenith | Prompt Architect Engine (SOTA Edition 2.1)
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
-![Architecture SOTA](https://img.shields.io/badge/Architecture-SOTA%20FDU%202.0-purple)
-![AI Powered](https://img.shields.io/badge/AI-Gemini%20Flash%202.0-orange)
-![Status Active](https://img.shields.io/badge/Status-Operational%20%E2%9C%94-brightgreen)
+![Architecture Modular](https://img.shields.io/badge/Architecture-Modular%20%26%20Decoupled-purple)
+![AI Agnostic](https://img.shields.io/badge/AI-LLM%20Agnostic-orange)
+![Tests Passing](https://img.shields.io/badge/Tests-Passing-brightgreen)
 
-**Zenith** não é apenas um chatbot. É um **Motor Cognitivo Polimórfico** de alta performance, desenhado para orquestrar fluxos de trabalho de IA complexos e autônomos.
+**Zenith** é um **Motor Cognitivo Polimórfico** de alta performance, desenhado para orquestrar fluxos de trabalho de IA complexos e autônomos.
 
-Recentemente atualizado para a arquitetura **FDU 2.0 (State-of-the-Art)**, o Zenith combina o melhor da recuperação de informação (RAG Híbrido) com raciocínio profundo (Structured Chain-of-Thought) e autogestão (Self-Healing).
+Recentemente refatorado para a arquitetura **Modular SOTA 2.1**, o Zenith agora é desacoplado do provedor de LLM, possui uma base de conhecimento modular e conta com uma suíte de testes robusta.
 
 ---
 
-## 💎 O Que Torna o Zenith "SOTA"? (State-of-the-Art)
+## 💎 Diferenciais da Versão 2.1 (Refactor)
 
-Diferente de agentes tradicionais que "alucinam" ou perdem o contexto, o Zenith opera sobre 5 pilares fundamentais:
+Além dos pilares originais (RAG Híbrido, Roteador Cognitivo, Chain-of-Thought), a nova versão introduz:
 
-### 1. 🧠 Hybrid Search (RAG 2.0)
-O sistema não depende apenas de vetores. Ele utiliza uma **Busca Híbrida** para garantir que nenhuma informação seja perdida:
-- **BM25 (Palavras-Chave):** Encontra termos exatos e técnicos rapidamente (cache persistente para performance).
-- **Vetores (Semântica):** Entende o conceito e o significado por trás da pergunta.
-- **Reciprocal Rank Fusion (RRF):** Funde os resultados dos dois mundos matematicamente.
-- **LLM Reranking:** Um "segundo cérebro" (Cross-Encoder) relê os top-10 resultados e escolhe apenas os 3 mais relevantes para o contexto atual.
+### 1. 🔌 LLM Provider Agnostic
+O sistema foi desacoplado da API do Google. Através da nova camada de abstração `LLMProvider`, é possível integrar qualquer modelo (OpenAI, Anthropic, Ollama) implementando apenas uma classe. O sistema já vem com a implementação `GoogleGenAIProvider` nativa.
 
-### 2. 🎭 Motor Polimórfico (Single Persistent Session)
-O Zenith "muda de pele" sem perder a memória.
-- Ele pode ser um **Investigador** em um turno, um **Programador Sênior** no próximo e um **Estrategista** no fim.
-- Tudo isso acontece dentro de uma **Sessão Persistente Única**, garantindo que o contexto da conversa flua natural e continuamente.
+### 2. 🧩 Base de Conhecimento Modular
+A antiga `StrategicKnowledgeBase` monolítica foi dividida em três componentes especializados:
+- **Manager:** Orquestra o fluxo.
+- **Retriever:** Cuida da busca bruta (Vetorial + BM25).
+- **Reranker:** Reordena os resultados usando inteligência artificial.
 
-### 3. 🚦 Roteador Cognitivo Resiliente
-Antes de responder, um sub-agente (Router) analisa sua intenção:
-- **Natureza:** É código? É texto? É planejamento?
-- **Complexidade:** Precisa de RAG? Precisa de CoT (Chain-of-Thought)?
-- **Resiliência:** Se o roteador falhar, ele aumenta a temperatura (criatividade) e tenta novamente antes de desistir.
+### 3. 🛡️ Segurança & Bootstrap Robusto
+- **Sem Pickle Inseguro:** O índice de palavras-chave (BM25) é reconstruído em memória ou carregado de forma segura, eliminando riscos de execução de código malicioso.
+- **Fail-Safe Startup:** O novo `BootstrapService` garante que todos os diretórios, configurações e índices estejam íntegros antes do sistema iniciar.
 
-### 4. 🔗 Structured Chain-of-Thought (CoT)
-O Zenith é **forçado** a pensar antes de agir.
-Todas as respostas complexas são precedidas por tags `<thinking>...</thinking>`, onde o agente planeja, critica a si mesmo e verifica fatos antes de gerar a resposta final para o usuário.
-
-### 5. ❤️‍🩹 Self-Healing Loop (Autocorreção)
-Um módulo "Juiz" (The Judge) avalia silenciosamente cada resposta gerada.
-- Se a nota for baixa (< 80/100), o Zenith **auto-rejeita** a resposta, lê o feedback do juiz e tenta gerar uma versão melhorada, *antes* de mostrar qualquer coisa ao usuário.
-
-### 6. 🖼️ Janela Deslizante de Contexto (Optimization)
-Para evitar custos explosivos e erros de token, o Zenith mantém na memória ativa apenas as últimas **20 trocas de mensagens**, descartando automaticamente o que for irrelevante ("Sliding Window").
+### 4. 🧪 Infraestrutura de Testes
+O projeto agora conta com cobertura de testes unitários (`pytest`) para os componentes críticos: Configuração, Bootstrap, Analisador de Intenção e o próprio Agente Central.
 
 ---
 
 ## 🛠 Arquitetura do Projeto
 
-O código segue os princípios de **Clean Architecture** e **PEP-8**:
+O código segue estritamente os princípios de **Clean Architecture**, **SOLID** e **Single Responsibility**:
 
 ```text
 Zenith/
 ├── data/
-│   ├── chroma_db/       # Memória Vetorial (Semântica)
-│   ├── bm25_index.pkl   # Memória de Palavras-chave (Rápida)
+│   ├── vector_store/    # Banco Vetorial (FAISS)
 │   └── prompts/         # Instruções de Sistema
-├── knowledge_base/      # Seus Manuais (.md/.txt) vão aqui
+├── knowledge_base/      # Seus documentos (.md/.txt)
 ├── src/
 │   ├── core/
-│   │   ├── agent.py     # Orquestrador SOTA (O Cérebro)
+│   │   ├── llm/         # Abstração de Provedores LLM
+│   │   ├── knowledge/   # Package da Base de Conhecimento (Manager, Retriever, Reranker)
+│   │   ├── agent.py     # Orquestrador Central
 │   │   ├── analyzer.py  # Roteador Cognitivo
-│   │   ├── knowledge.py # Motor de Busca Híbrida
-│   │   ├── validation.py# Guardrails de Segurança
-│   │   └── judge.py     # Módulo de Autoavaliação
-│   ├── scripts/
-│   │   └── ingest.py    # Ingestão de Dados Automatizada
-│   └── main.py          # Ponto de Entrada
+│   │   ├── bootstrap.py # Inicialização e Verificação do Sistema
+│   │   ├── config.py    # Configuração Centralizada
+│   │   ├── judge.py     # Auditor de Qualidade (Self-Healing)
+│   │   └── memory.py    # Gestão de Memória de Longo Prazo
+│   ├── utils/
+│   └── main.py          # Entry Point Limpo
+├── tests/               # Suíte de Testes Unitários
 └── requirements.txt
 ```
 
@@ -76,7 +65,7 @@ Zenith/
 
 ### Pré-requisitos
 - Python 3.10 ou superior
-- Uma chave de API do Google AI Studio (`GOOGLE_API_KEY`)
+- Uma chave de API (Google AI Studio por padrão)
 
 ### Instalação
 
@@ -91,28 +80,33 @@ Zenith/
     pip install -r requirements.txt
     ```
 
-3.  **Configure o Ambiente:**
-    - Crie um arquivo `.env` na raiz.
-    - Adicione: `GOOGLE_API_KEY=sua_chave_aqui`
-    - (Opcional) Ajuste o `MODEL_NAME` para `gemini-3-flash-preview` para máxima performance.
-
-### 🧠 Treinando o Cérebro (Ingestão)
-
-1.  Coloque seus arquivos de conhecimento (`.pdf`, `.md`, `.txt`) na pasta `knowledge_base/`.
-2.  Inicie o programa. O sistema detectará mudanças e fará a ingestão **automaticamente**:
-    ```bash
-    python -m src.main
+3.  **Configuração:**
+    - Crie um arquivo `.env` na raiz:
+    ```env
+    GOOGLE_API_KEY=sua_chave_aqui
+    MODEL_NAME=gemini-2.5-flash
+    TEMPERATURE=0.1
     ```
-    *(Nota: Isso criará o banco vetorial e o índice BM25 otimizado).*
+
+### ▶️ Executando
+
+O sistema possui um sistema de **auto-ingestão**. Basta colocar seus arquivos na pasta `knowledge_base/` e rodar:
+
+```bash
+python -m src.main
+```
+
+O `BootstrapService` detectará novos arquivos, atualizará o banco vetorial e iniciará o chat automaticamente.
 
 ---
 
-## 🛡️ Segurança e Guardrails
+## 🧪 Desenvolvimento e Testes
 
-O Zenith implementa o protocolo **Semantic Validator**:
-- **Bloqueio de PII:** Tenta detectar chaves de API ou cartões de crédito vazados.
-- **Estrutura:** Garante que o Roteador sempre responda em JSON válido.
-- **Grounding:** Prioriza a Base de Conhecimento Interna sobre alucinações.
+Para garantir a estabilidade das modificações, execute a suíte de testes antes de qualquer commit:
+
+```bash
+python -m pytest tests/
+```
 
 ---
 

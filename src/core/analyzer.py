@@ -2,9 +2,8 @@ import json
 import logging
 from typing import Any, Dict
 
-import google.generativeai as genai
-
 from src.core.config import Config
+from src.core.llm.google_genai import GoogleGenAIProvider
 
 
 class StrategicAnalyzer:
@@ -14,12 +13,15 @@ class StrategicAnalyzer:
 
     def __init__(self, config: Config):
         self.config = config
-        genai.configure(api_key=self.config.GOOGLE_API_KEY)
-
-        self.model = genai.GenerativeModel(
-            model_name=self.config.MODEL_NAME,
+        
+        # Initialize LLM Provider
+        self.llm = GoogleGenAIProvider(
+            model_name=self.config.MODEL_NAME, 
             system_instruction=self._get_system_prompt(),
+            temperature=0.1 # Default, overriden in methods
         )
+        self.llm.configure(self.config.GOOGLE_API_KEY)
+        
         self.logger = logging.getLogger("StrategicAnalyzer")
 
     def _get_system_prompt(self) -> str:
@@ -77,18 +79,17 @@ class StrategicAnalyzer:
             current_temp = temperatures[attempt]
 
             try:
-                response = await self.model.generate_content_async(
+                # Using LLM Provider
+                response_text = await self.llm.generate_content_async(
                     f"INPUT DO USUÁRIO: {user_input}",
-                    generation_config={
-                        "temperature": current_temp,
-                        "response_mime_type": "application/json",
-                    },
+                    temperature=current_temp,
+                    response_mime_type="application/json"
                 )
 
-                if not response.text:
+                if not response_text:
                     raise ValueError("Empty response from Analyzer")
 
-                analysis_json = json.loads(response.text)
+                analysis_json = json.loads(response_text)
                 self.logger.info(
                     f"Analysis successful (Temp: {current_temp}): "
                     f"{analysis_json.get('natureza')}"

@@ -7,3 +7,5 @@ langchain-community>=0.3.0
 faiss-cpu>=1.7.4
 pydantic>=2.10.0
 # pysqlite3 removed
+pytest>=7.4.0
+pytest-asyncio>=0.23.0

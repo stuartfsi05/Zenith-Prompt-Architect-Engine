@@ -1,13 +1,11 @@
 import asyncio
 
-import google.generativeai as genai
-from google.generativeai import protos
-
 from src.core.analyzer import StrategicAnalyzer
 from src.core.config import Config
 from src.core.database import DatabaseManager
 from src.core.judge import TheJudge
-from src.core.knowledge import StrategicKnowledgeBase
+from src.core.knowledge.manager import StrategicKnowledgeBase
+from src.core.llm.google_genai import GoogleGenAIProvider
 from src.core.memory import StrategicMemory
 from src.core.personas import Personas
 from src.core.validator import SemanticValidator
@@ -33,26 +31,19 @@ class ZenithAgent:
         self.memory = StrategicMemory(self.config)
         self.db = DatabaseManager(self.config)
 
-        self._configure_genai()
-
         logger.info(f"Initializing Engine: {self.config.MODEL_NAME}")
-        self.model = genai.GenerativeModel(
+        
+        # Initialize LLM Provider
+        self.llm = GoogleGenAIProvider(
             model_name=self.config.MODEL_NAME,
-            generation_config={
-                "temperature": self.config.TEMPERATURE,
-                "top_p": 0.95,
-                "top_k": 64,
-                "max_output_tokens": 8192,
-            },
-            system_instruction=self.default_system_instruction,
-            tools=[protos.Tool(google_search={})],
+            temperature=self.config.TEMPERATURE,
+            system_instruction=self.default_system_instruction
         )
+        self.llm.configure(self.config.GOOGLE_API_KEY)
 
         self.current_session_id = "default_session"
         self.db.create_session(self.current_session_id)
-
-    def _configure_genai(self):
-        genai.configure(api_key=self.config.GOOGLE_API_KEY)
+        self.main_session = None
 
     def start_chat(self, session_id: str = "default_session"):
         """
@@ -70,7 +61,8 @@ class ZenithAgent:
                 "parts": turn["parts"]
             })
 
-        self.main_session = self.model.start_chat(history=formatted_history)
+        # Use LLM Provider to start chat
+        self.main_session = self.llm.start_chat(history=formatted_history)
         logger.info(f"Context Restored ({len(formatted_history)} items).")
 
     def _prune_history(self):
@@ -177,8 +169,8 @@ class ZenithAgent:
         metadata = {}
 
         try:
-            stream = await self.main_session.send_message_async(
-                final_prompt, stream=True
+            stream = self.llm.send_message_async(
+                self.main_session, final_prompt, stream=True
             )
 
             async for chunk in stream:
@@ -209,8 +201,8 @@ class ZenithAgent:
                 )
 
                 yield (
-                    f"\n\n[dim]⚠️ Auditoria de Qualidade detectou falhas "
-                    f"(Score: {score}). Refinando...[/dim]\n\n"
+                    f"\n\n[dim]⚠️ Quality Assurance detected issues "
+                    f"(Score: {score}). Refining...[/dim]\n\n"
                 )
 
                 while attempt < max_retries:
@@ -223,12 +215,12 @@ class ZenithAgent:
                         f"process to fix these errors. Keep it concise."
                     )
 
-                    response = await self.main_session.send_message_async(
-                        refinement_prompt, stream=True
+                    response_stream = self.llm.send_message_async(
+                        self.main_session, refinement_prompt, stream=True
                     )
 
                     full_response_text = ""
-                    async for chunk in response:
+                    async for chunk in response_stream:
                         if chunk.text:
                             yield chunk.text
                             full_response_text += chunk.text
@@ -253,9 +245,19 @@ class ZenithAgent:
                 )
             )
 
-        except Exception as e:
-            logger.error(f"Execution Error: {e}")
+        except (ValueError, KeyError) as e:
+            logger.error(f"Validation/Data Error: {e}")
+            yield f"\n⚠️ **Data Error**: {str(e)}"
+            metadata["error"] = str(e)
+            
+        except RuntimeError as e:
+            logger.error(f"Runtime System Error: {e}")
             yield f"\n⚠️ **System Error**: {str(e)}"
+            metadata["error"] = str(e)
+            
+        except Exception as e:
+            logger.critical(f"Critical Unexpected Error: {e}")
+            yield f"\n⚠️ **Critical Failure**: Please contact support. ({str(e)})"
             metadata["error"] = str(e)
 
         finally:
