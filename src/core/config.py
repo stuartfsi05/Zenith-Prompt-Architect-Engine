@@ -18,6 +18,12 @@ class Config:
     MODEL_NAME: str
     TEMPERATURE: float
     SYSTEM_PROMPT_PATH: str
+    
+    # Paths
+    DATA_DIR: str
+    KNOWLEDGE_DIR: str
+    VECTOR_STORE_DIR: str
+    BM25_CACHE_PATH: str
 
     @classmethod
     def load(cls) -> "Config":
@@ -45,14 +51,25 @@ class Config:
             )
             temperature = 0.1
 
+        base_dir = os.getcwd()
+        
         system_prompt_path = os.getenv(
             "SYSTEM_PROMPT_PATH",
-            "data/prompts/system_instruction.sample.md"
+            os.path.join(base_dir, "data", "prompts", "system_instruction.sample.md")
         )
+
+        data_dir = os.path.join(base_dir, "data")
+        knowledge_dir = os.path.join(base_dir, "knowledge_base")
+        vector_store_dir = os.path.join(data_dir, "vector_store")
+        bm25_cache_path = os.path.join(data_dir, "bm25_index.pkl")
 
         return cls(
             GOOGLE_API_KEY=api_key,
             MODEL_NAME=model_name,
             TEMPERATURE=temperature,
             SYSTEM_PROMPT_PATH=system_prompt_path,
+            DATA_DIR=data_dir,
+            KNOWLEDGE_DIR=knowledge_dir,
+            VECTOR_STORE_DIR=vector_store_dir,
+            BM25_CACHE_PATH=bm25_cache_path
         )
