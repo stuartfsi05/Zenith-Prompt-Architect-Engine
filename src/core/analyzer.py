@@ -79,11 +79,12 @@ class StrategicAnalyzer:
             current_temp = temperatures[attempt]
 
             try:
-                # Using LLM Provider
                 response_text = await self.llm.generate_content_async(
                     f"INPUT DO USUÁRIO: {user_input}",
-                    temperature=current_temp,
-                    response_mime_type="application/json",
+                    config={
+                        "temperature": current_temp,
+                        "response_mime_type": "application/json",
+                    },
                 )
 
                 if not response_text:

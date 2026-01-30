@@ -2,7 +2,8 @@ import json
 import logging
 from typing import Any, Dict
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from src.core.config import Config
 
@@ -14,13 +15,11 @@ class TheJudge:
 
     def __init__(self, config: Config):
         self.config = config
-        genai.configure(api_key=self.config.GOOGLE_API_KEY)
+        # genai.configure moved to client init
         self.logger = logging.getLogger("ZenithJudge")
 
-        self.model = genai.GenerativeModel(
-            model_name=self.config.MODEL_NAME,
-            system_instruction=self._get_system_prompt(),
-        )
+        self.client = genai.Client(api_key=self.config.GOOGLE_API_KEY)
+        self.system_instruction = self._get_system_prompt()
 
     def _get_system_prompt(self) -> str:
         return """
@@ -73,12 +72,14 @@ class TheJudge:
         """
 
         try:
-            response = await self.model.generate_content_async(
-                prompt,
-                generation_config={
-                    "temperature": 0.0,
-                    "response_mime_type": "application/json",
-                },
+            response = await self.client.aio.models.generate_content(
+                model=self.config.MODEL_NAME,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=self.system_instruction,
+                    temperature=0.0,
+                    response_mime_type="application/json",
+                ),
             )
 
             raw_text = response.text.strip()
