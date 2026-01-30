@@ -58,7 +58,7 @@ class ZenithAgent:
         for turn in db_history:
             formatted_history.append({"role": turn["role"], "parts": turn["parts"]})
 
-        # Use LLM Provider to start chat
+        # Use LLM Provider to start chat - no await needed, returns AsyncChat directly
         self.main_session = self.llm.start_chat(history=formatted_history)
         logger.info(f"Context Restored ({len(formatted_history)} items).")
 
@@ -68,11 +68,11 @@ class ZenithAgent:
         Oldest messages are sent to memory consolidation.
         """
         max_history = 20
-        history_len = len(self.main_session.history)
+        history_len = len(self.main_session._curated_history)
 
         if history_len > max_history:
             prune_count = history_len - max_history
-            items_to_prune = self.main_session.history[:prune_count]
+            items_to_prune = self.main_session._curated_history[:prune_count]
 
             logger.info(
                 f"Pruning History (Current: {history_len}). "
@@ -81,7 +81,7 @@ class ZenithAgent:
 
             asyncio.create_task(self.memory.consolidate_memory_async(items_to_prune))
 
-            self.main_session.history = self.main_session.history[prune_count:]
+            self.main_session._curated_history = self.main_session._curated_history[prune_count:]
 
     async def run_analysis_async(self, user_input: str):
         """
@@ -168,9 +168,9 @@ class ZenithAgent:
             )
 
             async for chunk in stream:
-                if chunk.text:
-                    yield chunk.text
-                    full_response_text += chunk.text
+                if chunk:
+                    yield chunk
+                    full_response_text += chunk
 
             # Self-correction / Judgement logic
             min_score_threshold = 80
@@ -213,9 +213,9 @@ class ZenithAgent:
 
                     full_response_text = ""
                     async for chunk in response_stream:
-                        if chunk.text:
-                            yield chunk.text
-                            full_response_text += chunk.text
+                        if chunk:
+                            yield chunk
+                            full_response_text += chunk
 
                     attempt += 1
                     metadata["refinement_attempts"] = attempt
