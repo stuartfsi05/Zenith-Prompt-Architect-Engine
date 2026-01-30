@@ -1,7 +1,7 @@
 import asyncio
 import glob
 import os
-from typing import List, Dict
+from typing import Dict, List
 
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
@@ -22,8 +22,7 @@ class HybridRetriever:
     def __init__(self, config: Config):
         self.config = config
         self.embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
-            google_api_key=self.config.GOOGLE_API_KEY
+            model="models/embedding-001", google_api_key=self.config.GOOGLE_API_KEY
         )
         self.vector_store = None
         self.bm25_index = None
@@ -34,10 +33,10 @@ class HybridRetriever:
         Async initialization of stores.
         """
         loop = asyncio.get_running_loop()
-        
+
         # Load Vector DB
         await loop.run_in_executor(None, self._load_vector_db)
-        
+
         # Build BM25 Index (Rebuild in memory to avoid pickle risks)
         await loop.run_in_executor(None, self._build_bm25_index)
 
@@ -48,7 +47,7 @@ class HybridRetriever:
                 self.vector_store = FAISS.load_local(
                     folder_path=self.config.VECTOR_STORE_DIR,
                     embeddings=self.embeddings,
-                    allow_dangerous_deserialization=True
+                    allow_dangerous_deserialization=True,
                 )
                 logger.info("FAISS Vector DB loaded.")
             except Exception as e:
@@ -67,10 +66,9 @@ class HybridRetriever:
                     content = f.read()
                     chunks = [p for p in content.split("\n\n") if len(p) > 50]
                     for chunk in chunks:
-                        documents.append({
-                            "content": chunk,
-                            "source": os.path.basename(fpath)
-                        })
+                        documents.append(
+                            {"content": chunk, "source": os.path.basename(fpath)}
+                        )
 
             if documents:
                 tokenized_corpus = [doc["content"].split() for doc in documents]
@@ -88,12 +86,12 @@ class HybridRetriever:
         Executes parallel search and returns combined results.
         """
         loop = asyncio.get_running_loop()
-        
+
         vector_task = loop.run_in_executor(None, lambda: self._vector_search(query))
         bm25_task = loop.run_in_executor(None, lambda: self._bm25_search(query))
 
         vector_docs, bm25_docs = await asyncio.gather(vector_task, bm25_task)
-        
+
         return self._reciprocal_rank_fusion(vector_docs, bm25_docs)
 
     def _vector_search(self, query: str) -> List[Document]:
@@ -108,10 +106,10 @@ class HybridRetriever:
     def _bm25_search(self, query: str) -> List[Document]:
         if not self.bm25_index:
             return []
-        
+
         tokenized_query = query.split()
         results = self.bm25_index.get_top_n(tokenized_query, self.bm25_corpus, n=10)
-        
+
         return [
             Document(page_content=d["content"], metadata={"source": d["source"]})
             for d in results

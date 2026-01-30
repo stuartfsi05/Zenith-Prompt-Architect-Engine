@@ -18,7 +18,7 @@ class Config:
     MODEL_NAME: str
     TEMPERATURE: float
     SYSTEM_PROMPT_PATH: str
-    
+
     # Paths
     DATA_DIR: str
     KNOWLEDGE_DIR: str
@@ -34,28 +34,22 @@ class Config:
 
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
-            logger.critical(
-                "GOOGLE_API_KEY not found in environment variables."
-            )
-            raise ValueError(
-                "GOOGLE_API_KEY is required. Please check your .env file."
-            )
+            logger.critical("GOOGLE_API_KEY not found in environment variables.")
+            raise ValueError("GOOGLE_API_KEY is required. Please check your .env file.")
 
         model_name = os.getenv("MODEL_NAME", "gemini-2.5-flash")
 
         try:
             temperature = float(os.getenv("TEMPERATURE", "0.1"))
         except ValueError:
-            logger.warning(
-                "Invalid TEMPERATURE value in .env. Defaulting to 0.1."
-            )
+            logger.warning("Invalid TEMPERATURE value in .env. Defaulting to 0.1.")
             temperature = 0.1
 
         base_dir = os.getcwd()
-        
+
         system_prompt_path = os.getenv(
             "SYSTEM_PROMPT_PATH",
-            os.path.join(base_dir, "data", "prompts", "system_instruction.sample.md")
+            os.path.join(base_dir, "data", "prompts", "system_instruction.sample.md"),
         )
 
         data_dir = os.path.join(base_dir, "data")
@@ -71,5 +65,5 @@ class Config:
             DATA_DIR=data_dir,
             KNOWLEDGE_DIR=knowledge_dir,
             VECTOR_STORE_DIR=vector_store_dir,
-            BM25_CACHE_PATH=bm25_cache_path
+            BM25_CACHE_PATH=bm25_cache_path,
         )

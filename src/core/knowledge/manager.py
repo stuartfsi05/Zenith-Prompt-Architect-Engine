@@ -33,10 +33,10 @@ class StrategicKnowledgeBase:
         Main entry point for retrieval.
         """
         await self.ensure_initialized()
-        
+
         # 1. Hybrid Retrieval (Vector + BM25)
         candidates = await self.retriever.retrieve(query)
-        
+
         # 2. Limit candidates for Reranking (Cost/Speed optimization)
         top_candidates = candidates[:10]
 

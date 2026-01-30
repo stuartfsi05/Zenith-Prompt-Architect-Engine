@@ -1,20 +1,24 @@
 import os
 import sys
+
 # Force stdout to flush
-sys.stdout.reconfigure(encoding='utf-8')
+sys.stdout.reconfigure(encoding="utf-8")
 
 print("DEBUG: Starting ingestion...")
 
 try:
     from langchain_community.document_loaders import TextLoader
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
     from langchain_community.vectorstores import FAISS
     from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+
     from src.core.config import Config
+
     print("DEBUG: Imports successful.")
 except Exception as e:
     print(f"DEBUG: Import failed: {e}")
     sys.exit(1)
+
 
 def run_ingestion() -> bool:
     print("DEBUG: Loading Config...")
@@ -33,7 +37,7 @@ def run_ingestion() -> bool:
     if not os.path.exists(knowledge_dir):
         print("DEBUG: Knowledge dir not found")
         return False
-    
+
     # Ensure persist dir parent exists
     os.makedirs(os.path.dirname(persist_dir), exist_ok=True)
 
@@ -56,9 +60,7 @@ def run_ingestion() -> bool:
         return False
 
     print("DEBUG: Splitting text...")
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000, chunk_overlap=200
-    )
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = text_splitter.split_documents(documents)
     print(f"DEBUG: {len(chunks)} chunks created.")
 
@@ -70,11 +72,9 @@ def run_ingestion() -> bool:
         print("DEBUG: Embeddings initialized.")
 
         print("DEBUG: Creating FAISS index...")
-        vector_store = FAISS.from_documents(
-            documents=chunks, embedding=embeddings
-        )
+        vector_store = FAISS.from_documents(documents=chunks, embedding=embeddings)
         print("DEBUG: FAISS index created.")
-        
+
         print(f"DEBUG: Saving to {persist_dir}...")
         vector_store.save_local(persist_dir)
         print("DEBUG: Saved.")
@@ -83,8 +83,10 @@ def run_ingestion() -> bool:
     except Exception as e:
         print(f"DEBUG: Vector store creation failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     if run_ingestion():

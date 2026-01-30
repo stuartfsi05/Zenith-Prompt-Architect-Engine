@@ -65,7 +65,9 @@ async def main():
 
     # 4. Initialize Agent
     try:
-        with console.status(f"[bold green]Initializing {config.MODEL_NAME}...", spinner="dots"):
+        with console.status(
+            f"[bold green]Initializing {config.MODEL_NAME}...", spinner="dots"
+        ):
             agent = ZenithAgent(config, system_instruction)
             agent.start_chat()
     except Exception as e:
@@ -92,9 +94,13 @@ async def main():
             accumulated_text = ""
 
             with Live(
-                Panel("", title="[bold magenta]Zenith Agent (Thinking...)[/bold magenta]", border_style="magenta"),
+                Panel(
+                    "",
+                    title="[bold magenta]Zenith Agent (Thinking...)[/bold magenta]",
+                    border_style="magenta",
+                ),
                 refresh_per_second=10,
-                auto_refresh=True
+                auto_refresh=True,
             ) as live:
                 async for chunk in agent.run_analysis_async(user_input):
                     accumulated_text += chunk

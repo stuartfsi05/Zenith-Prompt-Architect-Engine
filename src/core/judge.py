@@ -99,9 +99,7 @@ class TheJudge:
             return result
 
         except Exception as e:
-            self.logger.error(
-                f"Judge Execution Failed: {e}. Defaulting to safe score."
-            )
+            self.logger.error(f"Judge Execution Failed: {e}. Defaulting to safe score.")
             return self._get_fallback_evaluation()
 
     def _get_fallback_evaluation(self) -> Dict[str, Any]:

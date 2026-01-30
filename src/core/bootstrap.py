@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+
 from rich.console import Console
 
 from src.core.config import Config
@@ -44,7 +45,7 @@ class BootstrapService:
         required_paths = [
             config.DATA_DIR,
             config.KNOWLEDGE_DIR,
-            os.path.dirname(config.SYSTEM_PROMPT_PATH)
+            os.path.dirname(config.SYSTEM_PROMPT_PATH),
         ]
 
         for path in required_paths:
@@ -69,7 +70,9 @@ class BootstrapService:
         )
 
         if should_update:
-            console.print("[bold yellow]📂 New documents detected. Updating Zenith Brain...[/bold yellow]")
+            console.print(
+                "[bold yellow]📂 New documents detected. Updating Zenith Brain...[/bold yellow]"
+            )
 
             # Invalidate Cache
             if os.path.exists(config.BM25_CACHE_PATH):
@@ -86,7 +89,9 @@ class BootstrapService:
                 await loop.run_in_executor(
                     None, save_knowledge_hash, config.KNOWLEDGE_DIR
                 )
-                console.print("[bold green]✅ Memory updated successfully.[/bold green]")
+                console.print(
+                    "[bold green]✅ Memory updated successfully.[/bold green]"
+                )
             else:
                 console.print("[bold red]❌ Update failed. Check logs.[/bold red]")
                 raise RuntimeError("Knowledge Ingestion Failed")

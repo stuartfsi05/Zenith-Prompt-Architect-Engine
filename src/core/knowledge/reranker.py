@@ -14,8 +14,7 @@ class RerankerService:
         self.config = config
         # Ideally injected, but for now we instantiate here to minimize breaking changes
         self.llm = GoogleGenAIProvider(
-            model_name=self.config.MODEL_NAME, 
-            temperature=0.0
+            model_name=self.config.MODEL_NAME, temperature=0.0
         )
         self.llm.configure(self.config.GOOGLE_API_KEY)
 
@@ -27,7 +26,7 @@ class RerankerService:
         """
         if not candidates:
             return []
-            
+
         logger.info("Performing LLM Reranking logic...")
 
         candidates_text = ""
@@ -49,13 +48,12 @@ class RerankerService:
         try:
             # Using LLM Provider Abstraction
             response_text = await self.llm.generate_content_async(
-                prompt,
-                response_mime_type="application/json"
+                prompt, response_mime_type="application/json"
             )
 
             selected_ids = json.loads(response_text)
             reranked_docs = []
-            
+
             # Defensive coding against hallucinated IDs
             for idx in selected_ids:
                 if isinstance(idx, int) and 0 <= idx < len(candidates):

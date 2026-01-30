@@ -13,15 +13,15 @@ class StrategicAnalyzer:
 
     def __init__(self, config: Config):
         self.config = config
-        
+
         # Initialize LLM Provider
         self.llm = GoogleGenAIProvider(
-            model_name=self.config.MODEL_NAME, 
+            model_name=self.config.MODEL_NAME,
             system_instruction=self._get_system_prompt(),
-            temperature=0.1 # Default, overriden in methods
+            temperature=0.1,  # Default, overriden in methods
         )
         self.llm.configure(self.config.GOOGLE_API_KEY)
-        
+
         self.logger = logging.getLogger("StrategicAnalyzer")
 
     def _get_system_prompt(self) -> str:
@@ -31,7 +31,7 @@ class StrategicAnalyzer:
         return """
         ATUE COMO: Um Roteador Cognitivo especialista.
         SUA MISSÃO: Analisar o input do usuário e classificar a intenção.
-        
+
         RETORNE APENAS UM JSON VÁLIDO. NADA MAIS.
         
         ### ESTRUTURA DE ANÁLISE
@@ -83,7 +83,7 @@ class StrategicAnalyzer:
                 response_text = await self.llm.generate_content_async(
                     f"INPUT DO USUÁRIO: {user_input}",
                     temperature=current_temp,
-                    response_mime_type="application/json"
+                    response_mime_type="application/json",
                 )
 
                 if not response_text:

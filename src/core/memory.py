@@ -31,7 +31,7 @@ class StrategicMemory:
             system_instruction=(
                 "You are a Background Memory Processor. "
                 "Your job is to compress information and extract facts."
-            )
+            ),
         )
 
     def load_memory(self):
@@ -52,7 +52,7 @@ class StrategicMemory:
         """Saves semantic memory to JSON."""
         data = {
             "master_summary": self.master_summary,
-            "user_profile": self.user_profile
+            "user_profile": self.user_profile,
         }
         try:
             os.makedirs(os.path.dirname(self.memory_path), exist_ok=True)
@@ -69,15 +69,13 @@ class StrategicMemory:
         if not old_messages:
             return
 
-        logger.info(
-            f"Consolidating {len(old_messages)} old messages into Summary..."
-        )
+        logger.info(f"Consolidating {len(old_messages)} old messages into Summary...")
 
         conversation_text = ""
         for msg in old_messages:
-            role = msg.role if hasattr(msg, 'role') else "unknown"
+            role = msg.role if hasattr(msg, "role") else "unknown"
             content = ""
-            if hasattr(msg, 'parts'):
+            if hasattr(msg, "parts"):
                 for part in msg.parts:
                     content += part.text
             else:
@@ -141,8 +139,7 @@ class StrategicMemory:
 
         try:
             response = await self.model.generate_content_async(
-                prompt,
-                generation_config={"response_mime_type": "application/json"}
+                prompt, generation_config={"response_mime_type": "application/json"}
             )
 
             updated_profile = json.loads(response.text)
@@ -150,9 +147,7 @@ class StrategicMemory:
             if updated_profile != self.user_profile:
                 self.user_profile = updated_profile
                 self.save_memory()
-                logger.info(
-                    f"User Profile updated: {self.user_profile.keys()}"
-                )
+                logger.info(f"User Profile updated: {self.user_profile.keys()}")
             else:
                 logger.info("No new entities found.")
 
@@ -164,12 +159,9 @@ class StrategicMemory:
         context = ""
 
         if self.user_profile:
-            facts = "\n".join(
-                [f"- {k}: {v}" for k, v in self.user_profile.items()]
-            )
+            facts = "\n".join([f"- {k}: {v}" for k, v in self.user_profile.items()])
             context += (
-                f"--- [MEMÓRIA SEMÂNTICA: PERFIL DO USUÁRIO] ---\n"
-                f"{facts}\n\n"
+                f"--- [MEMÓRIA SEMÂNTICA: PERFIL DO USUÁRIO] ---\n" f"{facts}\n\n"
             )
 
         if self.master_summary:

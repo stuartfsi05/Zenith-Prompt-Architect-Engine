@@ -32,12 +32,12 @@ class ZenithAgent:
         self.db = DatabaseManager(self.config)
 
         logger.info(f"Initializing Engine: {self.config.MODEL_NAME}")
-        
+
         # Initialize LLM Provider
         self.llm = GoogleGenAIProvider(
             model_name=self.config.MODEL_NAME,
             temperature=self.config.TEMPERATURE,
-            system_instruction=self.default_system_instruction
+            system_instruction=self.default_system_instruction,
         )
         self.llm.configure(self.config.GOOGLE_API_KEY)
 
@@ -56,10 +56,7 @@ class ZenithAgent:
 
         formatted_history = []
         for turn in db_history:
-            formatted_history.append({
-                "role": turn["role"],
-                "parts": turn["parts"]
-            })
+            formatted_history.append({"role": turn["role"], "parts": turn["parts"]})
 
         # Use LLM Provider to start chat
         self.main_session = self.llm.start_chat(history=formatted_history)
@@ -82,9 +79,7 @@ class ZenithAgent:
                 f"Archiving {len(items_to_prune)} items."
             )
 
-            asyncio.create_task(
-                self.memory.consolidate_memory_async(items_to_prune)
-            )
+            asyncio.create_task(self.memory.consolidate_memory_async(items_to_prune))
 
             self.main_session.history = self.main_session.history[prune_count:]
 
@@ -157,8 +152,7 @@ class ZenithAgent:
 
         if rag_context:
             final_prompt += (
-                f"--- [RELEVANT CONTEXT (Hybrid Search)] ---\n"
-                f"{rag_context}\n\n"
+                f"--- [RELEVANT CONTEXT (Hybrid Search)] ---\n" f"{rag_context}\n\n"
             )
 
         final_prompt += f"--- [USER REQUEST] ---\n{user_input}"
@@ -183,9 +177,7 @@ class ZenithAgent:
             max_retries = 2
             attempt = 0
 
-            evaluation = await self.judge.evaluate_async(
-                user_input, full_response_text
-            )
+            evaluation = await self.judge.evaluate_async(user_input, full_response_text)
             score = evaluation.get("score", 0)
             feedback = evaluation.get("feedback", "")
             needs_refinement = evaluation.get("needs_refinement", False)
@@ -240,21 +232,19 @@ class ZenithAgent:
                     feedback = evaluation.get("feedback", "")
 
             asyncio.create_task(
-                self.memory.extract_entities_async(
-                    user_input, full_response_text
-                )
+                self.memory.extract_entities_async(user_input, full_response_text)
             )
 
         except (ValueError, KeyError) as e:
             logger.error(f"Validation/Data Error: {e}")
             yield f"\n⚠️ **Data Error**: {str(e)}"
             metadata["error"] = str(e)
-            
+
         except RuntimeError as e:
             logger.error(f"Runtime System Error: {e}")
             yield f"\n⚠️ **System Error**: {str(e)}"
             metadata["error"] = str(e)
-            
+
         except Exception as e:
             logger.critical(f"Critical Unexpected Error: {e}")
             yield f"\n⚠️ **Critical Failure**: Please contact support. ({str(e)})"
@@ -266,5 +256,5 @@ class ZenithAgent:
                     self.current_session_id,
                     "model",
                     full_response_text,
-                    metadata=metadata
+                    metadata=metadata,
                 )

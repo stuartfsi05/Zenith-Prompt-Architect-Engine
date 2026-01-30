@@ -1,61 +1,64 @@
-# Zenith | Prompt Architect Engine (SOTA Edition 2.1)
+# Zenith | Prompt Architect Engine
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Architecture Modular](https://img.shields.io/badge/Architecture-Modular%20%26%20Decoupled-purple)
 ![AI Agnostic](https://img.shields.io/badge/AI-LLM%20Agnostic-orange)
 ![Tests Passing](https://img.shields.io/badge/Tests-Passing-brightgreen)
 
-**Zenith** é um **Motor Cognitivo Polimórfico** de alta performance, desenhado para orquestrar fluxos de trabalho de IA complexos e autônomos.
+**Zenith** é um **Motor Cognitivo Polimórfico** desenvolvido para orquestrar fluxos de trabalho de inteligência artificial complexos e autônomos. Projetado sob os princípios de Clean Architecture e SOLID, o Zenith oferece uma plataforma robusta, modular e segura para a criação de agentes inteligentes.
 
-Recentemente refatorado para a arquitetura **Modular SOTA 2.1**, o Zenith agora é desacoplado do provedor de LLM, possui uma base de conhecimento modular e conta com uma suíte de testes robusta.
+Sua arquitetura permite que o sistema adapte sua "persona" e estratégia de execução dinamicamente com base na intenção do usuário, variando entre modos de raciocínio lógico, codificação técnica e investigação factual.
 
 ---
 
-## 💎 Diferenciais da Versão 2.1 (Refactor)
+## 🔥 Funcionalidades Principais
 
-Além dos pilares originais (RAG Híbrido, Roteador Cognitivo, Chain-of-Thought), a nova versão introduz:
+### 🧠 Motor Polimórfico
+O Zenith analisa cada solicitação e seleciona a estratégia cognitiva ideal:
+*   **Arquitetura de Prompt Dinâmica:** O sistema constrói prompts contextuais em tempo real, injetando diretrizes específicas (Code Engineer, Researcher, Prompt Architect).
+*   **Roteamento de Intenção:** Um módulo analisador classifica a complexidade e a natureza da tarefa (Raciocínio, Geração, Planejamento) para alocar os recursos adequados.
 
-### 1. 🔌 LLM Provider Agnostic
-O sistema foi desacoplado da API do Google. Através da nova camada de abstração `LLMProvider`, é possível integrar qualquer modelo (OpenAI, Anthropic, Ollama) implementando apenas uma classe. O sistema já vem com a implementação `GoogleGenAIProvider` nativa.
+### 🔌 LLM Provider Agnostic
+O núcleo do sistema é desacoplado de provedores específicos. Através da abstração `LLMProvider`, o Zenith é capaz de integrar diferentes modelos. Atualmente, possui implementação nativa robusta para **Google Gemini 2.5 Flash**, otimizada para velocidade e eficiência.
 
-### 2. 🧩 Base de Conhecimento Modular
-A antiga `StrategicKnowledgeBase` monolítica foi dividida em três componentes especializados:
-- **Manager:** Orquestra o fluxo.
-- **Retriever:** Cuida da busca bruta (Vetorial + BM25).
-- **Reranker:** Reordena os resultados usando inteligência artificial.
+### 📚 RAG Híbrido Avançado
+O sistema de recuperação de informações (RAG) combina o melhor de dois mundos:
+*   **Busca Vetorial:** Para capturar similaridade semântica profunda.
+*   **Busca por Palavras-Chave (BM25):** Para precisão terminológica.
+*   **Reranking:** Um passo final de reordenação inteligente para garantir que apenas o contexto mais relevante chegue ao modelo.
 
-### 3. 🛡️ Segurança & Bootstrap Robusto
-- **Sem Pickle Inseguro:** O índice de palavras-chave (BM25) é reconstruído em memória ou carregado de forma segura, eliminando riscos de execução de código malicioso.
-- **Fail-Safe Startup:** O novo `BootstrapService` garante que todos os diretórios, configurações e índices estejam íntegros antes do sistema iniciar.
+### ⚖️ The Judge (Self-Correction)
+O sistema possui um módulo de auditoria interna ("O Juiz") que avalia a qualidade das respostas geradas antes de entregá-las ao usuário. Se a resposta não atingir os critérios de qualidade, o sistema inicia um loop de auto-correção autônomo.
 
-### 4. 🧪 Infraestrutura de Testes
-O projeto agora conta com cobertura de testes unitários (`pytest`) para os componentes críticos: Configuração, Bootstrap, Analisador de Intenção e o próprio Agente Central.
+### 💾 Memória e Persistência
+*   **Memória Semântica Progressiva:** O sistema mantém um resumo mestre e um perfil de usuário que evoluem com o tempo.
+*   **Banco de Dados SQLite:** Todas as sessões e interações são persistidas localmente de forma estruturada, permitindo auditoria e continuidade.
 
 ---
 
 ## 🛠 Arquitetura do Projeto
 
-O código segue estritamente os princípios de **Clean Architecture**, **SOLID** e **Single Responsibility**:
+O projeto segue uma estrutura modular clara:
 
 ```text
 Zenith/
 ├── data/
-│   ├── vector_store/    # Banco Vetorial (FAISS)
-│   └── prompts/         # Instruções de Sistema
-├── knowledge_base/      # Seus documentos (.md/.txt)
+│   ├── vector_store/    # Índices Vetoriais e BM25
+│   └── zenith.db        # Banco SQLite de Histórico e Sessões
+├── knowledge_base/      # Documentos para ingestão (.md/.txt)
 ├── src/
 │   ├── core/
-│   │   ├── llm/         # Abstração de Provedores LLM
-│   │   ├── knowledge/   # Package da Base de Conhecimento (Manager, Retriever, Reranker)
 │   │   ├── agent.py     # Orquestrador Central
-│   │   ├── analyzer.py  # Roteador Cognitivo
-│   │   ├── bootstrap.py # Inicialização e Verificação do Sistema
-│   │   ├── config.py    # Configuração Centralizada
-│   │   ├── judge.py     # Auditor de Qualidade (Self-Healing)
-│   │   └── memory.py    # Gestão de Memória de Longo Prazo
-│   ├── utils/
-│   └── main.py          # Entry Point Limpo
-├── tests/               # Suíte de Testes Unitários
+│   │   ├── analyzer.py  # Roteador de Intenção
+│   │   ├── database.py  # Gerenciador de Persistência SQLite
+│   │   ├── judge.py     # Módulo de Auto-Avaliação
+│   │   ├── memory.py    # Memória Semântica
+│   │   ├── personas.py  # Definições de Personas do Sistema
+│   │   ├── llm/         # Abstração e Implementação de LLMs
+│   │   └── knowledge/   # RAG Manager, Retriever e Reranker
+│   ├── scripts/         # Scripts utilitários (ex: verify_db.py)
+│   └── main.py          # Ponto de Entrada
+├── tests/               # Suíte de Testes (pytest)
 └── requirements.txt
 ```
 
@@ -65,7 +68,7 @@ Zenith/
 
 ### Pré-requisitos
 - Python 3.10 ou superior
-- Uma chave de API (Google AI Studio por padrão)
+- Uma chave de API do Google AI Studio
 
 ### Instalação
 
@@ -81,7 +84,7 @@ Zenith/
     ```
 
 3.  **Configuração:**
-    - Crie um arquivo `.env` na raiz:
+    Crie um arquivo `.env` na raiz do projeto com suas credenciais:
     ```env
     GOOGLE_API_KEY=sua_chave_aqui
     MODEL_NAME=gemini-2.5-flash
@@ -90,26 +93,30 @@ Zenith/
 
 ### ▶️ Executando
 
-O sistema possui um sistema de **auto-ingestão**. Basta colocar seus arquivos na pasta `knowledge_base/` e rodar:
+Para iniciar o agente interativo:
 
 ```bash
 python -m src.main
 ```
 
-O `BootstrapService` detectará novos arquivos, atualizará o banco vetorial e iniciará o chat automaticamente.
+O sistema irá automaticamente:
+1. Validar a configuração e ambiente (`BootstrapService`).
+2. Indexar novos documentos encontrados na pasta `knowledge_base/`.
+3. Iniciar a interface de chat no terminal.
 
 ---
 
-## 🧪 Desenvolvimento e Testes
+## 🧪 Testes
 
-Para garantir a estabilidade das modificações, execute a suíte de testes antes de qualquer commit:
+O projeto mantém uma alta cobertura de testes para garantir a estabilidade. Para rodar a suíte de testes:
 
 ```bash
-python -m pytest tests/
+python -m pytest
 ```
 
 ---
 
 ## 📜 Licença
+
 Proprietário e Confidencial. Todos os direitos reservados.
 Desenvolvido como projeto de pesquisa em Agentes Autônomos Avançados.

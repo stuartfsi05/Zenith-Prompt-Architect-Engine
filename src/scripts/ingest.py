@@ -1,10 +1,9 @@
 import os
 
 from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from src.core.config import Config
 from src.utils.logger import setup_logger
@@ -71,13 +70,11 @@ def run_ingestion() -> bool:
         )
 
         # Initialize FAISS from documents
-        vector_store = FAISS.from_documents(
-            documents=chunks, embedding=embeddings
-        )
-        
+        vector_store = FAISS.from_documents(documents=chunks, embedding=embeddings)
+
         # Save locally
         vector_store.save_local(persist_dir)
-        
+
         logger.info(f"Success! Knowledge Base saved to {persist_dir}")
         return True
 

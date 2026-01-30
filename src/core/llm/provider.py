@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
+
 
 class LLMProvider(ABC):
     """
@@ -21,8 +22,10 @@ class LLMProvider(ABC):
     async def generate_content_async(self, prompt: str, **kwargs) -> str:
         """Generates a single response asynchronously."""
         pass
-    
+
     @abstractmethod
-    async def send_message_async(self, session: Any, message: str, stream: bool = False) -> AsyncGenerator[str, None]:
+    async def send_message_async(
+        self, session: Any, message: str, stream: bool = False
+    ) -> AsyncGenerator[str, None]:
         """Sends a message to an active session and returns stream/text."""
         pass
