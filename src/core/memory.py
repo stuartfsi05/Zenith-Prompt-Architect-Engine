@@ -3,7 +3,8 @@ import json
 import os
 from typing import Any, List
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from src.core.config import Config
 from src.utils.logger import setup_logger
@@ -26,12 +27,10 @@ class StrategicMemory:
 
         self.load_memory()
 
-        self.model = genai.GenerativeModel(
-            model_name=self.config.MODEL_NAME,
-            system_instruction=(
-                "You are a Background Memory Processor. "
-                "Your job is to compress information and extract facts."
-            ),
+        self.client = genai.Client(api_key=self.config.GOOGLE_API_KEY)
+        self.system_instruction = (
+            "You are a Background Memory Processor. "
+            "Your job is to compress information and extract facts."
         )
 
     def load_memory(self):
@@ -102,7 +101,13 @@ class StrategicMemory:
         """
 
         try:
-            response = await self.model.generate_content_async(prompt)
+            response = await self.client.aio.models.generate_content(
+                model=self.config.MODEL_NAME,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=self.system_instruction
+                )
+            )
             if response.text:
                 self.master_summary = response.text
                 self.save_memory()
@@ -138,8 +143,13 @@ class StrategicMemory:
         """
 
         try:
-            response = await self.model.generate_content_async(
-                prompt, generation_config={"response_mime_type": "application/json"}
+            response = await self.client.aio.models.generate_content(
+                model=self.config.MODEL_NAME,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=self.system_instruction,
+                    response_mime_type="application/json"
+                )
             )
 
             updated_profile = json.loads(response.text)

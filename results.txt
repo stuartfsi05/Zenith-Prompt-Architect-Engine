@@ -1,0 +1,4 @@
+Chat object type: <class 'google.genai.chats.AsyncChat'>
+History related attributes: ['_comprehensive_history', '_curated_history', 'get_history', 'record_history']
+Has get_history method
+get_history returns: <class 'list'>

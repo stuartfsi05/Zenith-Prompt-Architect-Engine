@@ -10,7 +10,7 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 # Suppress Warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning, module="langchain_core")
-warnings.filterwarnings("ignore", message=".*Core Pydantic V1 functionality.*")
+
 
 from rich.console import Console
 from rich.live import Live

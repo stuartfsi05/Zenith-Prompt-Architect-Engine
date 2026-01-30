@@ -1,3 +1,6 @@
+import json
+from typing import List
+from src.core.knowledge.retriever import Document
 from src.core.config import Config
 from src.core.llm.google_genai import GoogleGenAIProvider
 from src.utils.logger import setup_logger
@@ -48,7 +51,7 @@ class RerankerService:
         try:
             # Using LLM Provider Abstraction
             response_text = await self.llm.generate_content_async(
-                prompt, response_mime_type="application/json"
+                prompt, config={"response_mime_type": "application/json"}
             )
 
             selected_ids = json.loads(response_text)
