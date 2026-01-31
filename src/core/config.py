@@ -18,6 +18,10 @@ class Config:
     MODEL_NAME: str
     TEMPERATURE: float
     SYSTEM_PROMPT_PATH: str
+    
+    # Supabase
+    SUPABASE_URL: str
+    SUPABASE_KEY: str
 
     # Paths
     DATA_DIR: str
@@ -45,6 +49,11 @@ class Config:
             logger.warning("Invalid TEMPERATURE value in .env. Defaulting to 0.1.")
             temperature = 0.1
 
+        supabase_url = os.getenv("SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_KEY")
+        if not supabase_url or not supabase_key:
+             logger.warning("SUPABASE_URL or SUPABASE_KEY not found. Database features may fail.")
+
         base_dir = os.getcwd()
 
         system_prompt_path = os.getenv(
@@ -62,6 +71,8 @@ class Config:
             MODEL_NAME=model_name,
             TEMPERATURE=temperature,
             SYSTEM_PROMPT_PATH=system_prompt_path,
+            SUPABASE_URL=supabase_url or "",
+            SUPABASE_KEY=supabase_key or "",
             DATA_DIR=data_dir,
             KNOWLEDGE_DIR=knowledge_dir,
             VECTOR_STORE_DIR=vector_store_dir,
