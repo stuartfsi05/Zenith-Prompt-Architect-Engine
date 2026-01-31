@@ -1,3 +1,5 @@
+import asyncio
+
 from typing import Optional, AsyncGenerator
 
 from src.core.analyzer import StrategicAnalyzer
