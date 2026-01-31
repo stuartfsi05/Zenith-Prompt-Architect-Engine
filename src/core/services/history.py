@@ -34,8 +34,7 @@ class HistoryService:
 
     async def prune_history_async(self, current_history: List[Any], max_length: int = 20):
         """
-        Pruning logic. (Currently stub relying on agent's internal memory consolidation).
-        In a full refactor, Memory logic should move here or be called by this service.
+        Future implementation for history pruning.
+        Currently handled by StrategicMemory consolidation within the Agent.
         """
-        # For now, we keep the Agent's pruning logic but this Service is the place for future history manipulations.
         pass
