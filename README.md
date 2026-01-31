@@ -6,121 +6,128 @@
 ![Architecture](https://img.shields.io/badge/Architecture-Clean%20%26%20DI-purple)
 ![License](https://img.shields.io/badge/License-Proprietary-red)
 
-**Zenith** é um motor de Agente de IA "Headless" de última geração, projetado para orquestrar fluxos de trabalho cognitivos complexos. Ele opera como uma API RESTful de alta performance, desacoplando a inteligência (Backend) da interface (Frontend), permitindo integração com qualquer cliente (Web, Mobile, CLI).
+**Zenith** é um motor de Agente de IA "Headless" de última geração.
 
-O sistema utiliza uma arquitetura moderna baseada em **Injeção de Dependência** para garantir escalabilidade, segurança e o fim de "Race Conditions" em ambientes concorrentes.
+> **O que significa "Headless"?** 
+> Diferente de um chatbot comum que já vem com uma tela de chat, o Zenith é **apenas o cérebro**. Ele não tem rosto. Ele expõe uma API RESTful de altíssima performance que qualquer aplicativo (Web, Mobile, WhatsApp Bot, CLI) pode conectar para "pensar".
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## 🏗️ A Arquitetura (Explicada)
 
-O Zenith foi refatorado para seguir estritamente o padrão de **Service Layer** e **Dependency Injection**.
+Este projeto não é apenas "código que funciona", ele é uma implementação de referência para **Sistemas de Agentes Escaláveis**. Abaixo, explicamos o *porquê* de cada decisão técnica.
+
+### O Problema dos Bots Comuns
+Em sistemas simples, quando 100 usuários falam com o bot ao mesmo tempo, o servidor pode confundir as memórias ou travar porque tenta segurar tudo na memória RAM. Isso chama-se "Race Condition" e "Memory Leak".
+
+### A Solução Zenith: "Transient Dependency Injection"
+O Zenith foi desenhado seguindo padrões de engenharia de software corporativa.
 
 ```mermaid
 graph TD
-    Client[Client App / Web] -->|HTTP/JWT| API[FastAPI Routes]
+    Client[📱 Seu App / Frontend] -->|Envia Mensagem (HTTP/JWT)| API[⚡ Zenith API (FastAPI)]
     
     subgraph "Zenith Engine (Transient Context)"
-        API -->|Instantiates| Agent[ZenithAgent]
-        Agent -->|Injects| SvcAuth[AuthService]
-        Agent -->|Injects| SvcUsage[UsageService]
-        Agent -->|Injects| SvcHist[HistoryService]
+        API -->|Cria Novo| Agent[🤖 ZenithAgent]
+        Agent -->|Injeta| Memory[🧠 Memória de Curto Prazo]
+        Agent -->|Carrega| Persona[🎭 Persona Dinâmica]
     end
     
     subgraph "Infrastructure (Singletons)"
-        Agent -->|Injects| DB[SupabaseRepository]
-        Agent -->|Injects| LLM[GoogleGenAIProvider]
+        Agent -->|Usa| DB[🗄️ Supabase Repository]
+        Agent -->|Usa| LLM[⚡ Google Gemini Provider]
     end
     
-    DB --> Supabase[(Supabase Cloud)]
-    LLM --> Gemini[Google Gemini API]
+    DB --> Supabase[(Nuvem de Dados)]
+    LLM --> Gemini[Google AI]
 ```
 
-### Principais Inovações
-1.  **Transient Agents (Zero-State):** Ao contrário de bots tradicionais, o `ZenithAgent` é instanciado *por requisição*. Isso elimina conflitos de memória entre usuários simultâneos (Race Conditions).
-2.  **Service Layer:** Lógica de negócios isolada em serviços (`Auth`, `Usage`, `History`), mantendo o núcleo do Agente limpo.
-3.  **Supabase Native:** Integração profunda com Supabase para:
-    *   **Auth:** Validação de JWT segura.
-    *   **Vector Store:** RAG (Retrieval Augmented Generation) usando `pgvector`.
-    *   **Logs:** Auditoria completa de interações e contabilidade financeira (uso de tokens).
-4.  **RAG Híbrido:** Estratégia de busca que combina vetores semânticos com palavras-chave para máxima precisão.
+#### 1. Agentes Transientes (Transient Agents)
+A cada nova mensagem que chega, o Zenith:
+1.  **Nasce:** Cria um Agente novo do zero.
+2.  **Pensa:** Carrega o histórico do banco, processa a resposta.
+3.  **Morre:** O Agente é deletado da memória RAM imediatamente após responder.
+*Resultado:* O sistema pode atender 1 ou 1 milhão de usuários sem misturar as conversas e sem "estourar" a memória.
+
+#### 2. Injeção de Dependência (DI)
+O Agente não sabe "como" conectar no banco ou no Google. Ele apenas pede: *"Preciso de um Banco e de um LLM"*.
+*   `src/api/dependencies.py` é o "garçom" que entrega essas ferramentas prontas (Singletons). Isso torna o sistema ultra-robusto e fácil de testar.
+
+#### 3. Cérebro na Nuvem (Supabase)
+Usamos o Supabase não só como banco de dados, mas como extensão do cérebro:
+*   **Memória Infinita (Vector Store):** O Zenith lembra de conversas passadas usando busca semântica (`pgvector`). Ele não busca por palavras exatas, mas pelo *significado* da ideia.
+*   **Segurança (RLS):** Seus dados são protegidos por Row Level Security. O Usuário A jamais verá dados do Usuário B.
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tecnologias Principais
 
-*   **Core:** Python 3.10+
-*   **API Framework:** FastAPI + Uvicorn
-*   **Database & Auth:** Supabase (PostgreSQL)
-*   **LLM Orchestration:** Google Gemini (Generative AI SDK) + LangChain
-*   **Validation:** Pydantic (Strict Types)
-*   **Tooling:** Ruff/Pylint, Pytest
+*   **Python 3.10+**: A linguagem da IA. Tipagem estrita é usada para evitar erros bobos.
+*   **FastAPI**: O framework web mais rápido do mercado Python.
+*   **Google Gemini 2.5 Flash**: O modelo de linguagem escolhido. Rápido, barato e inteligente.
+*   **Pydantic**: Garante que os dados entrem e saiam exatamente no formato correto.
 
 ---
 
-## 🚀 Guia de Instalação
+## 🚀 Como Rodar o Projeto (Passo a Passo)
 
 ### Pré-requisitos
-*   Python 3.10+ instalado.
-*   Conta no [Supabase](https://supabase.com) e projeto configurado.
-*   Chave de API do [Google AI Studio](https://aistudio.google.com).
+1.  Tenha **Python 3.10+** instalado.
+2.  Crie uma conta no [Supabase](https://supabase.com).
+3.  Pegue sua chave no [Google AI Studio](https://aistudio.google.com).
 
 ### 1. Clonar e Instalar
+Abra seu terminal e rode:
 ```bash
 git clone https://github.com/stuartfsi05/Zenith-Prompt-Architect-Engine.git
 cd Zenith-Prompt-Architect-Engine
 pip install -r requirements.txt
 ```
 
-### 2. Configuração de Ambiente
-Crie um arquivo `.env` na raiz com as seguintes variáveis:
+### 2. Configurar o "Segredo" (.env)
+O sistema precisa das suas chaves para funcionar. Crie um arquivo chamado `.env` na pasta raiz e preencha:
 ```env
-# Google Gemini
-GOOGLE_API_KEY=sua_api_key_aqui
+# Seu cérebro (Google)
+GOOGLE_API_KEY=Cole_Sua_Chave_Google_Aqui
 MODEL_NAME=gemini-2.5-flash
 TEMPERATURE=0.1
 
-# Supabase
-SUPABASE_URL=se_url_supabase
-SUPABASE_KEY=sua_service_role_ou_anon_key
+# Sua memória (Supabase)
+SUPABASE_URL=Sua_Url_Supabase
+SUPABASE_KEY=Sua_Chave_Secreta_Supabase
 
-# System
+# Arquivo de personalidade base
 SYSTEM_PROMPT_PATH=src/core/prompts/system.md
 ```
 
-### 3. Banco de Dados (Supabase)
-Execute os scripts SQL disponíveis em `data/schema.sql` (se fornecido) ou garanta que as tabelas `sessions`, `interactions`, `usage_logs` e a extensão `vector` estejam ativas.
-
-### 4. Executando o Servidor
-Para iniciar a API (e o bootstrap do sistema):
+### 3. Iniciar o Motor
+Com tudo pronto, ligue o motor:
 
 ```bash
 python src/run.py
 ```
-*O servidor iniciará em `http://0.0.0.0:8000`.*
+Se aparecer `[OK] System Online`, parabéns! Você tem uma IA rodando na sua máquina.
 
 ---
 
-## 📚 Documentação da API
+## 📚 Como Usar a API
 
-Com o servidor rodando, acesse a documentação interativa (Swagger UI):
-*   **URL:** `http://localhost:8000/docs`
+O servidor cria uma documentação automática e interativa.
+Com o servidor rodando, acesse no navegador:
+👉 **`http://localhost:8000/docs`**
 
-### Endpoints Principais
-*   `GET /health`: Health Check da API.
-*   `POST /chat`: Endpoint principal de chat (Streamado). Requer Header `Authorization: Bearer <JWT>`.
+Lá você pode testar o envio de mensagens diretamente pelo navegador, sem precisar programar um frontend.
 
 ---
 
-## 🧪 Testes e Qualidade
+## 🧪 Qualidade de Código
 
-O projeto mantém rigoroso controle de qualidade.
-*   **Testes Unitários:** `python -m pytest`
-*   **Linting:** Código padronizado com Pydantic e Type Hints.
+Para garantir que tudo funcione perfeitamente, usamos ferramentas profissionais:
+*   **Testes:** Rodamos `python -m pytest` para garantir que nada quebrou.
+*   **Linting:** Seguimos o guia de estilo PEP-8 rigorosamente. Se o código está feio, o Zenith não aceita.
 
 ---
 
 ## 📜 Licença
 
-Proprietário e Confidencial. Desenvolvido por Stuart FSI.
-Todos os direitos reservados.
+Proprietário e Confidencial. Desenvolvido por Thiago Dias Precivalli.
