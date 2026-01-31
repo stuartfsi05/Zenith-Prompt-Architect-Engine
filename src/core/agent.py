@@ -1,4 +1,3 @@
-import asyncio
 from typing import Optional, AsyncGenerator
 
 from src.core.analyzer import StrategicAnalyzer
@@ -22,49 +21,66 @@ class ZenithAgent:
     """
     Main agent class that coordinates analysis, memory, knowledge retrieval,
     and response generation.
+    Designed as a Transient Service: Created per request, disposed after.
     """
 
-    def __init__(self, config: Config, system_instruction: str):
+    def __init__(
+        self, 
+        config: Config, 
+        system_instruction: str,
+        db: SupabaseRepository,
+        llm: GoogleGenAIProvider
+    ):
+        """
+        Initialize the Agent with INJECTED dependencies.
+        NO internal instantiation of IO heavy services allowed.
+        """
+        if not db:
+            raise ValueError("Dependency 'db' (SupabaseRepository) cannot be None.")
+        if not llm:
+            raise ValueError("Dependency 'llm' (GoogleGenAIProvider) cannot be None.")
+
         self.config = config
         self.default_system_instruction = system_instruction
+        self.db = db
+        self.llm = llm
 
+        # Logic Components (Can be instantiated internally as they are mostly logic/config,
+        # but ideally should also be injected if they become heavy).
+        # For now, per instructions, we keep logic components here.
         self.analyzer = StrategicAnalyzer(self.config)
         self.validator = SemanticValidator()
         self.judge = TheJudge(self.config)
         self.knowledge_base = StrategicKnowledgeBase(self.config)
         self.memory = StrategicMemory(self.config)
         
-        # In a perfect world, we'd inject the repo, but for now we init DB here and create services
-        self.db = SupabaseRepository(self.config)
+        # Services - We re-instantiate them with the injected DB. 
+        # Since they are lightweight wrappers around the DB, this is acceptable for now.
+        # Alternatively, inject them too? The prompt focused on DB/LLM. 
+        # Re-creating them is cheap and safe as long as DB is shared.
         self.usage_service = UsageService(self.db)
         self.history_service = HistoryService(self.db)
 
-        logger.info(f"Initializing Engine: {self.config.MODEL_NAME}")
-
-        # Initialize LLM Provider
-        self.llm = GoogleGenAIProvider(
-            model_name=self.config.MODEL_NAME,
-            temperature=self.config.TEMPERATURE,
-            system_instruction=self.default_system_instruction,
-        )
-        self.llm.configure(self.config.GOOGLE_API_KEY)
-
-        self.current_session_id = "default_session"
-        # Create default system session
-        self.db.create_session(self.current_session_id, user_id="system")
+        # Session State - Transient per agent instance
+        self.current_session_id: Optional[str] = None
         self.main_session = None
+
+        logger.debug(f"ZenithAgent initialized for session context.")
 
     def start_chat(self, session_id: str, user_id: str):
         """
         Starts the chat session and loads history from the database.
         """
         self.current_session_id = session_id
-        logger.info(f"Loading Session: {session_id} for User: {user_id}")
+        # logger.info(f"Loading Session: {session_id} for User: {user_id}") 
+        # Reduced logging for transient creations
 
         # Use HistoryService
         formatted_history = self.history_service.get_formatted_history(session_id, user_id)
 
         # Use LLM Provider
+        # IMPORTANT: start_chat returns a NEW AsyncChat session.
+        # This is local to this Agent instance.
         self.main_session = self.llm.start_chat(history=formatted_history)
         logger.info(f"Context Restored ({len(formatted_history)} items).")
 
