@@ -31,21 +31,21 @@ O Zenith foi desenhado seguindo padrões de engenharia de software corporativa p
 
 ```mermaid
 graph TD
-    Client["📱 Seu App / Frontend"] -->|Envia Mensagem (HTTP/JWT)| API["⚡ Zenith API (FastAPI)"]
+    Client["Client App"] -->|HTTP JWT| API["Zenith API"]
     
-    subgraph "Zenith Engine (Transient Context)"
-        API -->|"Cria Novo"| Agent["🤖 ZenithAgent"]
-        Agent -->|"Injeta"| Memory["🧠 Memória de Curto Prazo"]
-        Agent -->|"Carrega"| Persona["🎭 Persona Dinâmica"]
+    subgraph "Zenith Engine"
+        API -->|1. Request| Agent["ZenithAgent (Transient)"]
+        Agent -->|2. Inject| Memory["Context Memory"]
+        Agent -->|3. Load| Persona["System Persona"]
     end
     
-    subgraph "Infrastructure (Singletons)"
-        Agent -->|"Usa"| DB["🗄️ Supabase Repository"]
-        Agent -->|"Usa"| LLM["⚡ Google Gemini Provider"]
+    subgraph "Infrastructure"
+        Agent -->|4. Use| DB["Supabase DB"]
+        Agent -->|5. Use| LLM["Google Gemini"]
     end
     
-    DB --> Supabase[("☁️ Nuvem de Dados")]
-    LLM --> Gemini["🧠 Google AI"]
+    DB --> Cloud[("Database Cloud")]
+    LLM --> AI["LLM Provider"]
 ```
 
 #### 1. Agentes Transientes (Transient Agents)
