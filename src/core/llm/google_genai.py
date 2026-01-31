@@ -94,7 +94,8 @@ class GoogleGenAIProvider(LLMProvider):
 
     async def send_message_async(
         self, session: Any, message: str, stream: bool = False
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[Any, None]:
+        # NOTE: Return type changed to Any to allow yielding Dict at the end
         if not session:
             raise ValueError("Session cannot be None.")
 
@@ -105,6 +106,10 @@ class GoogleGenAIProvider(LLMProvider):
             async for chunk in response_stream:
                 if chunk.text:
                     yield chunk.text
+                if chunk.usage_metadata:
+                     yield {"usage_metadata": chunk.usage_metadata}
         else:
             response = await session.send_message(message)
             yield response.text
+            if response.usage_metadata:
+                yield {"usage_metadata": response.usage_metadata}

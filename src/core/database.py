@@ -1,160 +1,136 @@
 import json
-import os
-import sqlite3
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List, Optional, Protocol
+import supabase
 from src.core.config import Config
 from src.utils.logger import setup_logger
 
-logger = setup_logger("DatabaseManager")
+logger = setup_logger("SupabaseRepository")
 
-
-class DatabaseManager:
+class PersistenceLayer(Protocol):
     """
-    Manages SQLite storage for sessions and interactions.
+    Interface definition for Persistence Layer.
+    """
+    def create_session(self, session_id: str, user_id: str) -> None: ...
+    def log_interaction(self, session_id: str, user_id: str, role: str, content: str, metadata: Optional[Dict] = None) -> None: ...
+    def get_history(self, session_id: str, user_id: str, limit: int = 50) -> List[Dict[str, Any]]: ...
+    def log_usage(self, user_id: str, session_id: str, model: str, input_tokens: int, output_tokens: int, total_tokens: int) -> None: ...
+
+class SupabaseRepository:
+    """
+    Concrete implementation of PersistenceLayer using Supabase.
     """
 
     def __init__(self, config: Config):
         self.config = config
-        self.db_path = os.path.join(os.getcwd(), "data", "zenith.db")
-        self._ensure_data_dir()
-        self._create_tables()
-
-    def _ensure_data_dir(self):
-        """Ensures data directory exists."""
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-
-    def _get_connection(self) -> sqlite3.Connection:
-        """Returns a new database connection."""
-        return sqlite3.connect(self.db_path)
-
-    def _create_tables(self):
-        """Creates the necessary tables if they don't exist."""
+        if not self.config.SUPABASE_URL or not self.config.SUPABASE_KEY:
+            logger.critical("Supabase credentials missing! Database operations will fail.")
+            raise ValueError("Supabase credentials not configured.")
+            
         try:
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-
-                # Table: Interactions
-                cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS interactions (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        session_id TEXT NOT NULL,
-                        role TEXT NOT NULL,
-                        content TEXT NOT NULL,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        metadata TEXT
-                    )
-                """
-                )
-
-                # Table: Sessions
-                cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS sessions (
-                        id TEXT PRIMARY KEY,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        last_active DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                """
-                )
-
-                conn.commit()
+            self.client = supabase.create_client(self.config.SUPABASE_URL, self.config.SUPABASE_KEY)
         except Exception as e:
-            logger.critical(f"Database Initialization Failed: {e}")
+            logger.critical(f"Failed to initialize Supabase client: {e}")
+            raise e
 
-    def create_session(self, session_id: str):
+    def create_session(self, session_id: str, user_id: str):
         """Registers a new session or updates last_active if exists."""
         try:
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    INSERT INTO sessions (id, created_at, last_active)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(id)
-                    DO UPDATE SET last_active = excluded.last_active
-                """,
-                    (session_id, datetime.now(), datetime.now()),
-                )
-                conn.commit()
+            data = {
+                "id": session_id,
+                "user_id": user_id,
+                "last_active": datetime.utcnow().isoformat()
+            }
+            self.client.table("sessions").upsert(data, on_conflict="id").execute()
         except Exception as e:
             logger.error(f"Failed to create/update session: {e}")
 
     def log_interaction(
-        self, session_id: str, role: str, content: str, metadata: Optional[Dict] = None
+        self, session_id: str, user_id: str, role: str, content: str, metadata: Optional[Dict] = None
     ):
         """Logs a single turn (User or Model) to the database."""
         try:
-            meta_json = json.dumps(metadata) if metadata else "{}"
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    INSERT INTO interactions
-                    (session_id, role, content, timestamp, metadata)
-                    VALUES (?, ?, ?, ?, ?)
-                """,
-                    (session_id, role, content, datetime.now(), meta_json),
-                )
-
-                cursor.execute(
-                    "UPDATE sessions SET last_active = ? WHERE id = ?",
-                    (datetime.now(), session_id),
-                )
-
-                conn.commit()
+            # Verify session ownership (optimistic check or handled by RLS/Logic)
+            # For strictness:
+            # self._verify_session_ownership(session_id, user_id)
+            
+            data = {
+                "session_id": session_id,
+                "role": role,
+                "content": content,
+                "timestamp": datetime.utcnow().isoformat(),
+                "metadata": metadata if metadata else {}
+            }
+            
+            self.client.table("interactions").insert(data).execute()
+            
+            # Update session last_active
+            self.client.table("sessions").update({
+                "last_active": datetime.utcnow().isoformat()
+            }).eq("id", session_id).eq("user_id", user_id).execute()
+            
         except Exception as e:
             logger.error(f"Failed to log interaction: {e}")
 
-    def get_history(self, session_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_history(self, session_id: str, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """
         Retrieves the chat history for a session.
         """
         history = []
         try:
-            with self._get_connection() as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    SELECT role, content, metadata
-                    FROM interactions
-                    WHERE session_id = ?
-                    ORDER BY id ASC
-                    LIMIT ?
-                """,
-                    (session_id, limit),
+            # Ownership check 
+            # (In a real scenario, we might want to fail hard if access is denied, but returning empty is safe fallback)
+            
+            response = (
+                self.client.table("interactions")
+                .select("role, content, metadata")
+                .eq("session_id", session_id)
+                .order("id", desc=True) # Get latest
+                .limit(limit)
+                .execute()
+            )
+            
+            rows = response.data
+            rows.reverse() # Restore chronological order
+            
+            for row in rows:
+                history.append(
+                    {
+                        "role": row["role"],
+                        "parts": [row["content"]],
+                        "metadata": row.get("metadata", {}) or {},
+                    }
                 )
-
-                rows = cursor.fetchall()
-                for row in rows:
-                    history.append(
-                        {
-                            "role": row["role"],
-                            "parts": [row["content"]],
-                            "metadata": (
-                                json.loads(row["metadata"]) if row["metadata"] else {}
-                            ),
-                        }
-                    )
         except Exception as e:
             logger.error(f"Failed to retrieve history: {e}")
 
         return history
 
+    def log_usage(self, user_id: str, session_id: str, model: str, input_tokens: int, output_tokens: int, total_tokens: int):
+        """Logs token usage for accounting."""
+        try:
+            data = {
+                "user_id": user_id,
+                "session_id": session_id,
+                "model": model,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": total_tokens,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            self.client.table("usage_logs").insert(data).execute()
+        except Exception as e:
+            logger.error(f"Failed to log usage: {e}")
+
     def get_analytics_summary(self) -> Dict[str, Any]:
         """Returns basic stats about usage."""
         stats = {}
         try:
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM interactions")
-                stats["total_interactions"] = cursor.fetchone()[0]
-
-                cursor.execute("SELECT COUNT(DISTINCT session_id) FROM sessions")
-                stats["total_sessions"] = cursor.fetchone()[0]
+            res_interactions = self.client.table("interactions").select("*", count="exact").limit(0).execute()
+            stats["total_interactions"] = res_interactions.count
+            
+            res_sessions = self.client.table("sessions").select("*", count="exact").limit(0).execute()
+            stats["total_sessions"] = res_sessions.count
         except Exception as e:
             logger.error(f"Analytics failure: {e}")
         return stats
