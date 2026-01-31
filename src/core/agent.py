@@ -34,8 +34,8 @@ class ZenithAgent:
         llm: GoogleGenAIProvider
     ):
         """
-        Initialize the Agent with INJECTED dependencies.
-        NO internal instantiation of IO heavy services allowed.
+        Initialize the Agent with injected dependencies.
+        Enforce dependency injection for IO-bound services.
         """
         if not db:
             raise ValueError("Dependency 'db' (SupabaseRepository) cannot be None.")
@@ -47,19 +47,15 @@ class ZenithAgent:
         self.db = db
         self.llm = llm
 
-        # Logic Components (Can be instantiated internally as they are mostly logic/config,
-        # but ideally should also be injected if they become heavy).
-        # For now, per instructions, we keep logic components here.
+        # Initialize logical components
+        # ideally should also be injected if they become heavy.
         self.analyzer = StrategicAnalyzer(self.config)
         self.validator = SemanticValidator()
         self.judge = TheJudge(self.config)
         self.knowledge_base = StrategicKnowledgeBase(self.config)
         self.memory = StrategicMemory(self.config)
         
-        # Services - We re-instantiate them with the injected DB. 
-        # Since they are lightweight wrappers around the DB, this is acceptable for now.
-        # Alternatively, inject them too? The prompt focused on DB/LLM. 
-        # Re-creating them is cheap and safe as long as DB is shared.
+        # Initialize domain services using the injected DB repository
         self.usage_service = UsageService(self.db)
         self.history_service = HistoryService(self.db)
 
@@ -74,15 +70,13 @@ class ZenithAgent:
         Starts the chat session and loads history from the database.
         """
         self.current_session_id = session_id
-        # logger.info(f"Loading Session: {session_id} for User: {user_id}") 
-        # Reduced logging for transient creations
+        self.current_session_id = session_id
 
         # Use HistoryService
         formatted_history = self.history_service.get_formatted_history(session_id, user_id)
 
         # Use LLM Provider
-        # IMPORTANT: start_chat returns a NEW AsyncChat session.
-        # This is local to this Agent instance.
+        # Initializes a new isolated AsyncChat session for this agent instance.
         self.main_session = self.llm.start_chat(history=formatted_history)
         logger.info(f"Context Restored ({len(formatted_history)} items).")
 
@@ -91,7 +85,7 @@ class ZenithAgent:
         Prunes history if it exceeds limits. 
         Delegates memory consolidation.
         """
-        # Kept internal for now as it touches main_session state directly
+        # Internal method to prune history.
         max_history = 20
         history_len = len(self.main_session._curated_history)
 

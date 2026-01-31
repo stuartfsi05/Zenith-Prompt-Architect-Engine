@@ -43,10 +43,7 @@ def get_llm(config: Config = Depends(get_config)) -> GoogleGenAIProvider:
     """
     try:
         logger.info(f"Initializing Singleton GoogleGenAIProvider ({config.MODEL_NAME}).")
-        # System prompt for LLM config context (not conversation specific) can be default or empty
-        # If the specific interaction needs a prompt, it's injected in the chat flow.
-        # But Provider might need a base one. 
-        # Using default loader for initialization.
+        # Load default system prompt for provider initialization
         default_sys_prompt = load_system_prompt(config.SYSTEM_PROMPT_PATH)
         
         provider = GoogleGenAIProvider(
@@ -79,15 +76,14 @@ def get_agent(
     Creates a NEW ZenithAgent instance for every request.
     Injects the Singleton DB and LLM services.
     
-    This Solves the Race Condition:
-    Each request gets its own 'agent' instance, so 'agent.main_session' is unique to the request.
+    Ensures request isolation and prevents race conditions.
     """
     try:
         # Load system instruction (cached or fast IO)
         system_instruction = load_system_prompt(config.SYSTEM_PROMPT_PATH)
         
         # Instantiate Transient Agent
-        # Note: We rely on the Agent's __init__ to accept these deps.
+        # Instantiate Transient Agent
         agent = ZenithAgent(
             config=config,
             system_instruction=system_instruction,
@@ -100,12 +96,10 @@ def get_agent(
         raise HTTPException(status_code=500, detail="Agent instantiation failed")
 
 # --- Startup ---
-# NOTE: We can keep this to warm up the cache / verify connections on startup
+# Startup warm-up sequence
 async def initialize_global_agent():
     """
-    Warm-up validation. 
-    Does not create a global agent variable anymore, 
-    but calls the providers to ensure they initialize without error.
+    Initializes and validates global service providers.
     """
     try:
         config = get_config()
@@ -114,7 +108,7 @@ async def initialize_global_agent():
         logger.info("Global Services Warmed Up Successfully.")
     except Exception as e:
         logger.critical(f"Startup Warmup Failed: {e}")
-        # We might want to let the app run or crash? Crashing is safer if DB is down.
+        # Critical failure if DB/LLM cannot initialize
         raise e
 
 # --- Auth ---

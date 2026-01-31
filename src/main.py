@@ -68,7 +68,7 @@ async def main():
         with console.status(
             f"[bold green]Initializing {config.MODEL_NAME}...", spinner="dots"
         ):
-            # Using DI Providers even in CLI for consistency
+            # Initialize services via DI providers
             from src.api.dependencies import get_db, get_llm
             
             db = get_db(config)

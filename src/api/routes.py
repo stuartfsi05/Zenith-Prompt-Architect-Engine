@@ -26,28 +26,9 @@ async def chat_endpoint(
     """
     logger.info(f"Received chat request for session {request.session_id} from user {user.id}")
     
-    # Update agent's database manager context?
-    # The agent instance is global, BUT it uses `self.db` which is global.
-    # We need to tell the agent WHO is talking so it logs correctly.
-    # Refactoring ZenithAgent to accept user_id in run_analysis_async might be cleaner,
-    # OR we handle the session setup here and the agent just "runs".
-    # BUT the agent calculates memory and history.
-    
-    # OPTION: Pass user_id to run_analysis_async
-    # We need to modify ZenithAgent.run_analysis_async to accept user_id and pass it to db.
-    
-    # For now, let's assume we modified ZenithAgent to take user_id in run_analysis_async
-    # OR we monkey-patch/set context on the agent? No, that's not thread safe.
-    
-    # We must modify ZenithAgent signature. 
-    # Let's do that in a separate step or assume I did it? 
-    # I haven't done it yet. I need to modify ZenithAgent too.
-    
-    # Let's update this route assuming the method signature update comes next.
-    
     async def event_generator():
         try:
-            # Passing user_id to agent
+            # Execute agent analysis stream with user context
             async for chunk in agent.run_analysis_async(request.message, user_id=user.id, session_id=request.session_id):
                 response = ChatResponse(content=chunk)
                 yield json.dumps(response.model_dump()) + "\n"
