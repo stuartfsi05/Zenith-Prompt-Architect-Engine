@@ -6,40 +6,46 @@
 ![Architecture](https://img.shields.io/badge/Architecture-Clean%20%26%20DI-purple)
 ![License](https://img.shields.io/badge/License-Proprietary-red)
 
-**Zenith** é um motor de Agente de IA "Headless" de última geração.
+**Zenith** é um motor de Agente de IA "Headless" (sem interface visual) desenhado para ser o cérebro de aplicações complexas. Ele não é apenas um chatbot; é um **Orquestrador Cognitivo**.
 
-> **O que significa "Headless"?** 
-> Diferente de um chatbot comum que já vem com uma tela de chat, o Zenith é **apenas o cérebro**. Ele não tem rosto. Ele expõe uma API RESTful de altíssima performance que qualquer aplicativo (Web, Mobile, WhatsApp Bot, CLI) pode conectar para "pensar".
+### O Que o Zenith Faz?
+Diferente de uma simples integração com o GPT, o Zenith funciona como um "funcionário digital" ultra-rápido. Você envia uma tarefa complexa e ele:
+1.  **Analisa** a intenção (codificação, raciocínio lógico, conversa criativa).
+2.  **Consulta** memórias passadas (banco de dados vetorial).
+3.  **Planeja** a melhor resposta.
+4.  **Executa** a tarefa e devolve o resultado estruturado.
+
+> **Exemplo Prático:** Se você conectar o Zenith ao WhatsApp da sua empresa, ele não apenas responderá "olá", mas consultará o histórico do cliente, verificará o tom de voz da marca e poderá até agendar reuniões (se expandido), tudo em milissegundos.
 
 ---
 
 ## 🏗️ A Arquitetura (Explicada)
 
-Este projeto não é apenas "código que funciona", ele é uma implementação de referência para **Sistemas de Agentes Escaláveis**. Abaixo, explicamos o *porquê* de cada decisão técnica.
+Este projeto é uma implementação de referência para **Sistemas de Agentes Escaláveis**. 
 
 ### O Problema dos Bots Comuns
-Em sistemas simples, quando 100 usuários falam com o bot ao mesmo tempo, o servidor pode confundir as memórias ou travar porque tenta segurar tudo na memória RAM. Isso chama-se "Race Condition" e "Memory Leak".
+Em sistemas simples, quando 100 usuários falam com o bot ao mesmo tempo, o servidor pode confundir as memórias ou travar porque tenta segurar tudo na memória RAM.
 
-### A Solução Zenith: "Transient Dependency Injection"
-O Zenith foi desenhado seguindo padrões de engenharia de software corporativa.
+### A Solução Zenith
+O Zenith foi desenhado seguindo padrões de engenharia de software corporativa para "nascer e morrer" a cada requisição.
 
 ```mermaid
 graph TD
-    Client[📱 Seu App / Frontend] -->|Envia Mensagem (HTTP/JWT)| API[⚡ Zenith API (FastAPI)]
+    Client["📱 Seu App / Frontend"] -->|Envia Mensagem (HTTP/JWT)| API["⚡ Zenith API (FastAPI)"]
     
     subgraph "Zenith Engine (Transient Context)"
-        API -->|Cria Novo| Agent[🤖 ZenithAgent]
-        Agent -->|Injeta| Memory[🧠 Memória de Curto Prazo]
-        Agent -->|Carrega| Persona[🎭 Persona Dinâmica]
+        API -->|"Cria Novo"| Agent["🤖 ZenithAgent"]
+        Agent -->|"Injeta"| Memory["🧠 Memória de Curto Prazo"]
+        Agent -->|"Carrega"| Persona["🎭 Persona Dinâmica"]
     end
     
     subgraph "Infrastructure (Singletons)"
-        Agent -->|Usa| DB[🗄️ Supabase Repository]
-        Agent -->|Usa| LLM[⚡ Google Gemini Provider]
+        Agent -->|"Usa"| DB["🗄️ Supabase Repository"]
+        Agent -->|"Usa"| LLM["⚡ Google Gemini Provider"]
     end
     
-    DB --> Supabase[(Nuvem de Dados)]
-    LLM --> Gemini[Google AI]
+    DB --> Supabase[("☁️ Nuvem de Dados")]
+    LLM --> Gemini["🧠 Google AI"]
 ```
 
 #### 1. Agentes Transientes (Transient Agents)
