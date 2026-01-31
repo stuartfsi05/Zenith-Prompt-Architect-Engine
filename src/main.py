@@ -68,8 +68,17 @@ async def main():
         with console.status(
             f"[bold green]Initializing {config.MODEL_NAME}...", spinner="dots"
         ):
-            agent = ZenithAgent(config, system_instruction)
-            agent.start_chat()
+            # Using DI Providers even in CLI for consistency
+            from src.api.dependencies import get_db, get_llm
+            
+            db = get_db(config)
+            llm = get_llm(config)
+            
+            agent = ZenithAgent(config, system_instruction, db, llm)
+            
+            # Start default session
+            agent.start_chat(session_id="cli_session", user_id="cli_user")
+            
     except Exception as e:
         console.print(f"[bold red]Agent Initialization Failed:[/bold red] {e}")
         logger.exception("Failed to initialize agent")

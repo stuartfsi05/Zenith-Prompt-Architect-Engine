@@ -1,122 +1,126 @@
 # Zenith | Prompt Architect Engine
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
-![Architecture Modular](https://img.shields.io/badge/Architecture-Modular%20%26%20Decoupled-purple)
-![AI Agnostic](https://img.shields.io/badge/AI-LLM%20Agnostic-orange)
-![Tests Passing](https://img.shields.io/badge/Tests-Passing-brightgreen)
+![FastAPI](https://img.shields.io/badge/FastAPI-Headless-009688)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E)
+![Architecture](https://img.shields.io/badge/Architecture-Clean%20%26%20DI-purple)
+![License](https://img.shields.io/badge/License-Proprietary-red)
 
-**Zenith** é um **Motor Cognitivo Polimórfico** desenvolvido para orquestrar fluxos de trabalho de inteligência artificial complexos e autônomos. Projetado sob os princípios de Clean Architecture e SOLID, o Zenith oferece uma plataforma robusta, modular e segura para a criação de agentes inteligentes.
+**Zenith** é um motor de Agente de IA "Headless" de última geração, projetado para orquestrar fluxos de trabalho cognitivos complexos. Ele opera como uma API RESTful de alta performance, desacoplando a inteligência (Backend) da interface (Frontend), permitindo integração com qualquer cliente (Web, Mobile, CLI).
 
-Sua arquitetura permite que o sistema adapte sua "persona" e estratégia de execução dinamicamente com base na intenção do usuário, variando entre modos de raciocínio lógico, codificação técnica e investigação factual.
-
----
-
-## 🔥 Funcionalidades Principais
-
-### 🧠 Motor Polimórfico
-O Zenith analisa cada solicitação e seleciona a estratégia cognitiva ideal:
-*   **Arquitetura de Prompt Dinâmica:** O sistema constrói prompts contextuais em tempo real, injetando diretrizes específicas (Code Engineer, Researcher, Prompt Architect).
-*   **Roteamento de Intenção:** Um módulo analisador classifica a complexidade e a natureza da tarefa (Raciocínio, Geração, Planejamento) para alocar os recursos adequados.
-
-### 🔌 LLM Provider Agnostic
-O núcleo do sistema é desacoplado de provedores específicos. Através da abstração `LLMProvider`, o Zenith é capaz de integrar diferentes modelos. Atualmente, possui implementação nativa robusta para **Google Gemini 2.5 Flash**, otimizada para velocidade e eficiência.
-
-### 📚 RAG Híbrido Avançado
-O sistema de recuperação de informações (RAG) combina o melhor de dois mundos:
-*   **Busca Vetorial:** Para capturar similaridade semântica profunda.
-*   **Busca por Palavras-Chave (BM25):** Para precisão terminológica.
-*   **Reranking:** Um passo final de reordenação inteligente para garantir que apenas o contexto mais relevante chegue ao modelo.
-
-### ⚖️ The Judge (Self-Correction)
-O sistema possui um módulo de auditoria interna ("O Juiz") que avalia a qualidade das respostas geradas antes de entregá-las ao usuário. Se a resposta não atingir os critérios de qualidade, o sistema inicia um loop de auto-correção autônomo.
-
-### 💾 Memória e Persistência
-*   **Memória Semântica Progressiva:** O sistema mantém um resumo mestre e um perfil de usuário que evoluem com o tempo.
-*   **Banco de Dados SQLite:** Todas as sessões e interações são persistidas localmente de forma estruturada, permitindo auditoria e continuidade.
+O sistema utiliza uma arquitetura moderna baseada em **Injeção de Dependência** para garantir escalabilidade, segurança e o fim de "Race Conditions" em ambientes concorrentes.
 
 ---
 
-## 🛠 Arquitetura do Projeto
+## 🏗️ Arquitetura do Sistema
 
-O projeto segue uma estrutura modular clara:
+O Zenith foi refatorado para seguir estritamente o padrão de **Service Layer** e **Dependency Injection**.
 
-```text
-Zenith/
-├── data/
-│   ├── vector_store/    # Índices Vetoriais e BM25
-│   └── zenith.db        # Banco SQLite de Histórico e Sessões
-├── knowledge_base/      # Documentos para ingestão (.md/.txt)
-├── src/
-│   ├── core/
-│   │   ├── agent.py     # Orquestrador Central
-│   │   ├── analyzer.py  # Roteador de Intenção
-│   │   ├── database.py  # Gerenciador de Persistência SQLite
-│   │   ├── judge.py     # Módulo de Auto-Avaliação
-│   │   ├── memory.py    # Memória Semântica
-│   │   ├── personas.py  # Definições de Personas do Sistema
-│   │   ├── llm/         # Abstração e Implementação de LLMs
-│   │   └── knowledge/   # RAG Manager, Retriever e Reranker
-│   ├── scripts/         # Scripts utilitários (ex: verify_db.py)
-│   └── main.py          # Ponto de Entrada
-├── tests/               # Suíte de Testes (pytest)
-└── requirements.txt
+```mermaid
+graph TD
+    Client[Client App / Web] -->|HTTP/JWT| API[FastAPI Routes]
+    
+    subgraph "Zenith Engine (Transient Context)"
+        API -->|Instantiates| Agent[ZenithAgent]
+        Agent -->|Injects| SvcAuth[AuthService]
+        Agent -->|Injects| SvcUsage[UsageService]
+        Agent -->|Injects| SvcHist[HistoryService]
+    end
+    
+    subgraph "Infrastructure (Singletons)"
+        Agent -->|Injects| DB[SupabaseRepository]
+        Agent -->|Injects| LLM[GoogleGenAIProvider]
+    end
+    
+    DB --> Supabase[(Supabase Cloud)]
+    LLM --> Gemini[Google Gemini API]
 ```
 
+### Principais Inovações
+1.  **Transient Agents (Zero-State):** Ao contrário de bots tradicionais, o `ZenithAgent` é instanciado *por requisição*. Isso elimina conflitos de memória entre usuários simultâneos (Race Conditions).
+2.  **Service Layer:** Lógica de negócios isolada em serviços (`Auth`, `Usage`, `History`), mantendo o núcleo do Agente limpo.
+3.  **Supabase Native:** Integração profunda com Supabase para:
+    *   **Auth:** Validação de JWT segura.
+    *   **Vector Store:** RAG (Retrieval Augmented Generation) usando `pgvector`.
+    *   **Logs:** Auditoria completa de interações e contabilidade financeira (uso de tokens).
+4.  **RAG Híbrido:** Estratégia de busca que combina vetores semânticos com palavras-chave para máxima precisão.
+
 ---
 
-## 🚀 Como Iniciar
+## 🛠️ Tech Stack
+
+*   **Core:** Python 3.10+
+*   **API Framework:** FastAPI + Uvicorn
+*   **Database & Auth:** Supabase (PostgreSQL)
+*   **LLM Orchestration:** Google Gemini (Generative AI SDK) + LangChain
+*   **Validation:** Pydantic (Strict Types)
+*   **Tooling:** Ruff/Pylint, Pytest
+
+---
+
+## 🚀 Guia de Instalação
 
 ### Pré-requisitos
-- Python 3.10 ou superior
-- Uma chave de API do Google AI Studio
+*   Python 3.10+ instalado.
+*   Conta no [Supabase](https://supabase.com) e projeto configurado.
+*   Chave de API do [Google AI Studio](https://aistudio.google.com).
 
-### Instalação
-
-1.  **Clone o repositório:**
-    ```bash
-    git clone https://github.com/stuartfsi05/Zenith-Prompt-Architect-Engine.git
-    cd Zenith-Prompt-Architect-Engine
-    ```
-
-2.  **Instale as dependências:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3.  **Configuração:**
-    Crie um arquivo `.env` na raiz do projeto com suas credenciais:
-    ```env
-    GOOGLE_API_KEY=sua_chave_aqui
-    MODEL_NAME=gemini-2.5-flash
-    TEMPERATURE=0.1
-    ```
-
-### ▶️ Executando
-
-Para iniciar o agente interativo:
-
+### 1. Clonar e Instalar
 ```bash
-python -m src.main
+git clone https://github.com/stuartfsi05/Zenith-Prompt-Architect-Engine.git
+cd Zenith-Prompt-Architect-Engine
+pip install -r requirements.txt
 ```
 
-O sistema irá automaticamente:
-1. Validar a configuração e ambiente (`BootstrapService`).
-2. Indexar novos documentos encontrados na pasta `knowledge_base/`.
-3. Iniciar a interface de chat no terminal.
+### 2. Configuração de Ambiente
+Crie um arquivo `.env` na raiz com as seguintes variáveis:
+```env
+# Google Gemini
+GOOGLE_API_KEY=sua_api_key_aqui
+MODEL_NAME=gemini-2.5-flash
+TEMPERATURE=0.1
+
+# Supabase
+SUPABASE_URL=se_url_supabase
+SUPABASE_KEY=sua_service_role_ou_anon_key
+
+# System
+SYSTEM_PROMPT_PATH=src/core/prompts/system.md
+```
+
+### 3. Banco de Dados (Supabase)
+Execute os scripts SQL disponíveis em `data/schema.sql` (se fornecido) ou garanta que as tabelas `sessions`, `interactions`, `usage_logs` e a extensão `vector` estejam ativas.
+
+### 4. Executando o Servidor
+Para iniciar a API (e o bootstrap do sistema):
+
+```bash
+python src/run.py
+```
+*O servidor iniciará em `http://0.0.0.0:8000`.*
 
 ---
 
-## 🧪 Testes
+## 📚 Documentação da API
 
-O projeto mantém uma alta cobertura de testes para garantir a estabilidade. Para rodar a suíte de testes:
+Com o servidor rodando, acesse a documentação interativa (Swagger UI):
+*   **URL:** `http://localhost:8000/docs`
 
-```bash
-python -m pytest
-```
+### Endpoints Principais
+*   `GET /health`: Health Check da API.
+*   `POST /chat`: Endpoint principal de chat (Streamado). Requer Header `Authorization: Bearer <JWT>`.
+
+---
+
+## 🧪 Testes e Qualidade
+
+O projeto mantém rigoroso controle de qualidade.
+*   **Testes Unitários:** `python -m pytest`
+*   **Linting:** Código padronizado com Pydantic e Type Hints.
 
 ---
 
 ## 📜 Licença
 
-Proprietário e Confidencial. Todos os direitos reservados.
-Desenvolvido como projeto de pesquisa em Agentes Autônomos Avançados.
+Proprietário e Confidencial. Desenvolvido por Stuart FSI.
+Todos os direitos reservados.
