@@ -3,10 +3,8 @@ python-dotenv
 rich>=13.0.0
 langchain-google-genai>=2.0.0
 langchain-community>=0.3.0
-# langchain-chroma removed
 faiss-cpu>=1.7.4
 pydantic>=2.10.0
-# pysqlite3 removed
 pytest>=7.4.0
 pytest-asyncio>=0.23.0
 flake8>=7.0.0
