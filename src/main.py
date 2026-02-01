@@ -132,7 +132,11 @@ async def main():
                 refresh_per_second=10,
                 auto_refresh=True,
             ) as live:
-                async for chunk in agent.run_analysis_async(user_input):
+                async for chunk in agent.run_analysis_async(
+                    user_input, 
+                    session_id="cli_session", 
+                    user_id="cli_user"
+                ):
                     accumulated_text += chunk
                     live.update(
                         Panel(
