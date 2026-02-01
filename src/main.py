@@ -46,7 +46,7 @@ async def main():
 
     # 1. Load Configuration
     try:
-        config = Config.load()
+        config = Config()
     except Exception as e:
         console.print(f"[bold red]Configuration Error:[/bold red] {e}")
         sys.exit(1)
@@ -69,12 +69,31 @@ async def main():
             f"[bold green]Initializing {config.MODEL_NAME}...", spinner="dots"
         ):
             # Initialize services via DI providers
-            from src.api.dependencies import get_db, get_llm
+            from src.api.dependencies import (
+                get_db, get_llm, 
+                get_knowledge_base, get_context_builder, get_analyzer, 
+                get_judge, get_memory
+            )
             
             db = get_db(config)
             llm = get_llm(config)
+            knowledge_base = get_knowledge_base(config)
+            context_builder = get_context_builder()
+            analyzer = get_analyzer(config)
+            judge = get_judge(config)
+            memory = get_memory(config)
             
-            agent = ZenithAgent(config, system_instruction, db, llm)
+            agent = ZenithAgent(
+                config, 
+                system_instruction, 
+                db, 
+                llm,
+                knowledge_base,
+                context_builder,
+                analyzer,
+                judge,
+                memory
+            )
             
             # Start default session
             agent.start_chat(session_id="cli_session", user_id="cli_user")

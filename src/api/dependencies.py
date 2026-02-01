@@ -15,12 +15,22 @@ logger = logging.getLogger("ZenithAPI")
 
 # --- Singleton Providers (@lru_cache) ---
 
+from src.core.knowledge.manager import StrategicKnowledgeBase
+from src.core.context_builder import ContextBuilder
+from src.core.analyzer import StrategicAnalyzer
+from src.core.judge import TheJudge
+from src.core.memory import StrategicMemory
+
+# ... existing imports ...
+
+# --- Singleton Providers (@lru_cache) ---
+
 @lru_cache()
 def get_config() -> Config:
     """
     Returns a cached instance of the configuration.
     """
-    return Config.load()
+    return Config()
 
 @lru_cache()
 def get_db(config: Config = Depends(get_config)) -> SupabaseRepository:
@@ -51,7 +61,7 @@ def get_llm(config: Config = Depends(get_config)) -> GoogleGenAIProvider:
             temperature=config.TEMPERATURE,
             system_instruction=default_sys_prompt
         )
-        provider.configure(config.GOOGLE_API_KEY)
+        provider.configure(config.GOOGLE_API_KEY.get_secret_value())
         return provider
     except Exception as e:
         logger.critical(f"Failed to initialize LLM: {e}")
@@ -64,17 +74,43 @@ def get_auth_service(config: Config = Depends(get_config)) -> AuthService:
     """
     return AuthService(config)
 
+@lru_cache()
+def get_knowledge_base(config: Config = Depends(get_config)) -> StrategicKnowledgeBase:
+    return StrategicKnowledgeBase(config)
+
+@lru_cache()
+def get_context_builder() -> ContextBuilder:
+    return ContextBuilder()
+
+@lru_cache()
+def get_analyzer(config: Config = Depends(get_config)) -> StrategicAnalyzer:
+    return StrategicAnalyzer(config)
+
+@lru_cache()
+def get_judge(config: Config = Depends(get_config)) -> TheJudge:
+    return TheJudge(config)
+
+@lru_cache()
+def get_memory(config: Config = Depends(get_config)) -> StrategicMemory:
+    return StrategicMemory(config)
+
+
 # --- Transient Provider (Per Request) ---
 
 def get_agent(
     config: Config = Depends(get_config),
     db: SupabaseRepository = Depends(get_db),
-    llm: GoogleGenAIProvider = Depends(get_llm)
+    llm: GoogleGenAIProvider = Depends(get_llm),
+    knowledge_base: StrategicKnowledgeBase = Depends(get_knowledge_base),
+    context_builder: ContextBuilder = Depends(get_context_builder),
+    analyzer: StrategicAnalyzer = Depends(get_analyzer),
+    judge: TheJudge = Depends(get_judge),
+    memory: StrategicMemory = Depends(get_memory)
 ) -> ZenithAgent:
     """
     Transient Agent Factory.
     Creates a NEW ZenithAgent instance for every request.
-    Injects the Singleton DB and LLM services.
+    Injects the Singleton services.
     
     Ensures request isolation and prevents race conditions.
     """
@@ -83,12 +119,16 @@ def get_agent(
         system_instruction = load_system_prompt(config.SYSTEM_PROMPT_PATH)
         
         # Instantiate Transient Agent
-        # Instantiate Transient Agent
         agent = ZenithAgent(
             config=config,
             system_instruction=system_instruction,
             db=db,
-            llm=llm
+            llm=llm,
+            knowledge_base=knowledge_base,
+            context_builder=context_builder,
+            analyzer=analyzer,
+            judge=judge,
+            memory=memory
         )
         return agent
     except Exception as e:
@@ -105,6 +145,11 @@ async def initialize_global_agent():
         config = get_config()
         get_db(config)
         get_llm(config)
+        get_knowledge_base(config)
+        get_context_builder()
+        get_analyzer(config)
+        get_judge(config)
+        get_memory(config)
         logger.info("Global Services Warmed Up Successfully.")
     except Exception as e:
         logger.critical(f"Startup Warmup Failed: {e}")

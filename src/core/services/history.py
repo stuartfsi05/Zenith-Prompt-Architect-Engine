@@ -1,6 +1,6 @@
 import logging
 from typing import List, Dict, Any
-from src.core.database import SupabaseRepository
+from src.core.database import PersistenceLayer
 
 logger = logging.getLogger("HistoryService")
 
@@ -9,7 +9,7 @@ class HistoryService:
     Service responsible for managing chat history and context.
     """
 
-    def __init__(self, db: SupabaseRepository):
+    def __init__(self, db: PersistenceLayer):
         self.db = db
 
     def get_formatted_history(self, session_id: str, user_id: str, limit: int = 20) -> List[Dict[str, Any]]:

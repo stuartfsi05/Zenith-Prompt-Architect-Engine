@@ -27,7 +27,7 @@ class StrategicMemory:
 
         self.load_memory()
 
-        self.client = genai.Client(api_key=self.config.GOOGLE_API_KEY)
+        self.client = genai.Client(api_key=self.config.GOOGLE_API_KEY.get_secret_value())
         self.system_instruction = (
             "You are a Background Memory Processor. "
             "Your job is to compress information and extract facts."
@@ -114,6 +114,30 @@ class StrategicMemory:
                 logger.info("Master Summary updated.")
         except Exception as e:
             logger.error(f"Memory Consolidation Failed: {e}")
+
+    async def manage_history(self, chat_session: Any, max_history: int = 20):
+        """
+        Checks chat history length and triggers consolidation if needed.
+        Acts as a background maintenance task.
+        """
+        if not hasattr(chat_session, "_curated_history"):
+            return
+
+        history_len = len(chat_session._curated_history)
+
+        if history_len > max_history:
+            prune_count = history_len - max_history
+            items_to_prune = chat_session._curated_history[:prune_count]
+
+            logger.info(
+                f"Pruning History (Current: {history_len}). "
+                f"Archiving {len(items_to_prune)} items."
+            )
+            
+            # Prune first, then consolidate async
+            chat_session._curated_history = chat_session._curated_history[prune_count:]
+            
+            asyncio.create_task(self.consolidate_memory_async(items_to_prune))
 
     async def extract_entities_async(self, user_input: str, model_output: str):
         """

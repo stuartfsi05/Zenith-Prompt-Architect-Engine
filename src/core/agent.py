@@ -2,15 +2,16 @@ import asyncio
 
 from typing import Optional, AsyncGenerator
 
+from src.core.context_builder import ContextBuilder
 from src.core.analyzer import StrategicAnalyzer
 from src.core.config import Config
 from src.core.judge import TheJudge
 from src.core.knowledge.manager import StrategicKnowledgeBase
-from src.core.llm.google_genai import GoogleGenAIProvider
+from src.core.llm.provider import LLMProvider
 from src.core.memory import StrategicMemory
 from src.core.personas import Personas
 from src.core.validator import SemanticValidator
-from src.core.database import SupabaseRepository
+from src.core.database import PersistenceLayer
 from src.core.services.usage import UsageService
 from src.core.services.history import HistoryService
 
@@ -30,30 +31,35 @@ class ZenithAgent:
         self, 
         config: Config, 
         system_instruction: str,
-        db: SupabaseRepository,
-        llm: GoogleGenAIProvider
+        db: PersistenceLayer,
+        llm: LLMProvider,
+        knowledge_base: StrategicKnowledgeBase,
+        context_builder: ContextBuilder,
+        analyzer: StrategicAnalyzer,
+        judge: TheJudge,
+        memory: StrategicMemory
     ):
         """
         Initialize the Agent with injected dependencies.
         Enforce dependency injection for IO-bound services.
         """
         if not db:
-            raise ValueError("Dependency 'db' (SupabaseRepository) cannot be None.")
+            raise ValueError("Dependency 'db' (PersistenceLayer) cannot be None.")
         if not llm:
-            raise ValueError("Dependency 'llm' (GoogleGenAIProvider) cannot be None.")
+            raise ValueError("Dependency 'llm' (LLMProvider) cannot be None.")
 
         self.config = config
         self.default_system_instruction = system_instruction
         self.db = db
         self.llm = llm
 
-        # Initialize logical components
-        # ideally should also be injected if they become heavy.
-        self.analyzer = StrategicAnalyzer(self.config)
-        self.validator = SemanticValidator()
-        self.judge = TheJudge(self.config)
-        self.knowledge_base = StrategicKnowledgeBase(self.config)
-        self.memory = StrategicMemory(self.config)
+        # Initialize logical components (Injected)
+        self.knowledge_base = knowledge_base
+        self.context_builder = context_builder
+        self.analyzer = analyzer
+        self.validator = SemanticValidator() # Lightweight, can remain transient or be injected if needed later
+        self.judge = judge
+        self.memory = memory
         
         # Initialize domain services using the injected DB repository
         self.usage_service = UsageService(self.db)
@@ -80,25 +86,7 @@ class ZenithAgent:
         self.main_session = self.llm.start_chat(history=formatted_history)
         logger.info(f"Context Restored ({len(formatted_history)} items).")
 
-    def _prune_history(self):
-        """
-        Prunes history if it exceeds limits. 
-        Delegates memory consolidation.
-        """
-        # Internal method to prune history.
-        max_history = 20
-        history_len = len(self.main_session._curated_history)
 
-        if history_len > max_history:
-            prune_count = history_len - max_history
-            items_to_prune = self.main_session._curated_history[:prune_count]
-
-            logger.info(
-                f"Pruning History (Current: {history_len}). "
-                f"Archiving {len(items_to_prune)} items."
-            )
-            asyncio.create_task(self.memory.consolidate_memory_async(items_to_prune))
-            self.main_session._curated_history = self.main_session._curated_history[prune_count:]
 
     async def run_analysis_async(self, user_input: str, user_id: str, session_id: str) -> AsyncGenerator[str, None]:
         """
@@ -108,7 +96,7 @@ class ZenithAgent:
         if self.current_session_id != session_id or not self.main_session:
              self.start_chat(session_id, user_id)
              
-        self._prune_history()
+        await self.memory.manage_history(self.main_session)
         logger.info(f"Processing Input: {user_input[:50]}...")
 
         # 2. Validation
@@ -131,12 +119,14 @@ class ZenithAgent:
 
         # 4. Context Construction
         selected_persona = Personas.get_persona(nature)
-        system_injection = self._build_system_injection(selected_persona)
+        system_injection = self.context_builder.build_system_injection(selected_persona)
 
-        rag_context = await self._resolve_rag_context(knowledge_task, complexity)
+        rag_context = await self.context_builder.resolve_rag_context(knowledge_task, complexity)
         memory_context = self.memory.get_context_injection()
         
-        final_prompt = f"{system_injection}\n\n{memory_context}\n{rag_context}\n--- [USER REQUEST] ---\n{user_input}"
+        final_prompt = self.context_builder.assemble_prompt(
+            system_injection, memory_context, rag_context, user_input
+        )
         
         # 5. Interaction Logging
         self.db.log_interaction(self.current_session_id, user_id, "user", user_input)
@@ -170,32 +160,7 @@ class ZenithAgent:
                     metadata=metadata,
                 )
 
-    def _build_system_injection(self, persona: str) -> str:
-        return (
-            f"--- [SYSTEM OVERRIDE: ACTIVE PERSONA] ---\n{persona}\n\n"
-            f"--- [MANDATORY INSTRUCTION: DEEP THINKING] ---\n"
-            f"Antes de responder, você DEVE analisar o pedido passo a passo "
-            f"dentro de tags <thinking>...</thinking>.\n"
-            f"Planeje sua resposta, verifique fatos e critique sua própria lógica.\n"
-            f"Apenas após o fechamento da tag </thinking>, forneça a resposta final ao usuário.\n"
-        )
 
-    async def _resolve_rag_context(self, knowledge_task: asyncio.Task, complexity: str) -> str:
-        rag_context = ""
-        if complexity != "Simples":
-            try:
-                content = await knowledge_task
-                if content:
-                    rag_context = f"--- [RELEVANT CONTEXT (Hybrid Search)] ---\n{content}\n\n"
-            except Exception as e:
-                logger.error(f"Knowledge Retrieval failed: {e}")
-        else:
-            # We still await to ensure task cleanup, but ignore result
-            try:
-                await knowledge_task
-            except Exception:
-                pass
-        return rag_context
 
     async def _generate_with_retry(self, prompt: str, original_input: str, user_id: str, session_id: str, metadata: dict):
         """
@@ -228,7 +193,6 @@ class ZenithAgent:
         if score < min_score or needs_refinement:
              yield f"\n\n[dim]⚠️ Quality Assurance detected issues (Score: {score}). Refining...[/dim]\n\n"
              
-             # Simple retry logic (could be expanded)
              refinement_prompt = (
                 f"--- [SELF-CORRECTION PROTOCOL] ---\n"
                 f"Analyze your previous response. The Quality Judge rejected it (Score: {score}).\n"
@@ -236,10 +200,35 @@ class ZenithAgent:
                 f"TASK: Rewrite the response leveraging your <thinking> process to fix these errors."
              )
              
-             retry_stream = self.llm.send_message_async(self.main_session, refinement_prompt, stream=True)
-             async for chunk in retry_stream:
-                if isinstance(chunk, dict) and "usage_metadata" in chunk:
-                    self.usage_service.log_tokens(user_id, session_id, self.config.MODEL_NAME, chunk["usage_metadata"])
-                    continue
-                if isinstance(chunk, str):
-                    yield chunk
+             # --- Circuit Breaker Pattern ---
+             # Buffer the response to validate BEFORE streaming to user.
+             # This prevents "Fail-Open" where we stream garbage.
+             retry_response_buffer = ""
+             try:
+                 retry_stream = self.llm.send_message_async(self.main_session, refinement_prompt, stream=True)
+                 async for chunk in retry_stream:
+                    if isinstance(chunk, dict) and "usage_metadata" in chunk:
+                        self.usage_service.log_tokens(user_id, session_id, self.config.MODEL_NAME, chunk["usage_metadata"])
+                        continue
+                    if isinstance(chunk, str):
+                        retry_response_buffer += chunk
+                 
+                 # Secondary Evaluation (Circuit Breaker)
+                 retry_eval = await self.judge.evaluate_async(original_input, retry_response_buffer)
+                 retry_score = retry_eval.get("score", 0)
+                 
+                 if retry_score >= min_score:
+                     yield retry_response_buffer
+                 else:
+                     logger.warning(f"Circuit Breaker Triggered: Retry Score {retry_score} < {min_score}")
+                     yield (
+                         "\n\n[bold red]⛔ Circuit Breaker Activated[/bold red]\n"
+                         "Unable to formulate a response that meets safety/quality standards after refinement.\n"
+                         "Please rephrase your request."
+                     )
+                     metadata["circuit_breaker_triggered"] = True
+
+             except Exception as e:
+                 logger.error(f"Refinement failed: {e}")
+                 yield f"\n\n[error]Refinement process failed: {str(e)}[/error]"
+                 metadata["error_refinement"] = str(e)

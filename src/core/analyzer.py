@@ -20,7 +20,7 @@ class StrategicAnalyzer:
             system_instruction=self._get_system_prompt(),
             temperature=0.1,  # Default, overriden in methods
         )
-        self.llm.configure(self.config.GOOGLE_API_KEY)
+        self.llm.configure(self.config.GOOGLE_API_KEY.get_secret_value())
 
         self.logger = logging.getLogger("StrategicAnalyzer")
 

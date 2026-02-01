@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
-from src.core.database import SupabaseRepository
+from src.core.database import PersistenceLayer
 
 logger = logging.getLogger("UsageService")
 
@@ -10,7 +10,7 @@ class UsageService:
     Service responsible for tracking and logging token usage.
     """
 
-    def __init__(self, db: SupabaseRepository):
+    def __init__(self, db: PersistenceLayer):
         self.db = db
 
     def log_tokens(
