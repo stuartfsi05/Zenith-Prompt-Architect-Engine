@@ -47,6 +47,10 @@ class Config(BaseSettings):
 
     @property
     def SYSTEM_PROMPT_PATH(self) -> Path:
+        return self.DATA_DIR / "prompts" / "system_instruction.md"
+
+    @property
+    def SAMPLE_SYSTEM_PROMPT_PATH(self) -> Path:
         return self.DATA_DIR / "prompts" / "system_instruction.sample.md"
 
     # Supabase (Optional but typed)

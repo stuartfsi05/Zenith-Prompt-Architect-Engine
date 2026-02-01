@@ -149,6 +149,22 @@ Este projeto adere a rigorosos padrões de engenharia de software:
 
 ---
 
+## ❓ Troubleshooting (Solução de Problemas)
+
+### Erro 429: Resource Exhausted (Quota Exceeded)
+Se você encontrar erros como `429` ou falhas na ingestão de conhecimento, isso geralmente está relacionado aos limites da API do Google.
+
+*   **Modelo de Embeddings**: O sistema usa `embedding-001`. Em contas gratuitas, o limite de requisições por minuto (RPM) pode ser baixo.
+*   **Solução**:
+    1.  Verifique suas cotas no [Google AI Studio](https://aistudio.google.com).
+    2.  Considere ativar o **Billing (Pagamento)** no Google Cloud Console para aumentar as cotas.
+    3.  Se o erro persistir na inicialização, o sistema entrará em modo de *Degradação Graciosa* (funcionará sem memória atualizada).
+
+### Permissões da API Key
+Certifique-se de que sua `GOOGLE_API_KEY` tem permissão para acessar tanto a **Generative Language API** (para o modelo Gemini) quanto a API de Embeddings.
+
+---
+
 ## 📜 Licença
 
 **Proprietário e Confidencial**.
