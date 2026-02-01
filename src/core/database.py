@@ -23,18 +23,24 @@ class SupabaseRepository:
 
     def __init__(self, config: Config):
         self.config = config
+        self.client = None
+        
         if not self.config.SUPABASE_URL or not self.config.SUPABASE_KEY:
-            logger.critical("Supabase credentials missing! Database operations will fail.")
-            raise ValueError("Supabase credentials not configured.")
-            
+            logger.warning("Supabase credentials missing! Database operations will be disabled.")
+            return
+
         try:
             self.client = supabase.create_client(self.config.SUPABASE_URL, self.config.SUPABASE_KEY)
+            logger.info("Supabase client initialized.")
         except Exception as e:
-            logger.critical(f"Failed to initialize Supabase client: {e}")
-            raise e
+            logger.error(f"Failed to initialize Supabase client: {e}")
+            # We do NOT raise here, to allow the app to start without DB
+            self.client = None
 
     def create_session(self, session_id: str, user_id: str):
         """Registers a new session or updates last_active if exists."""
+        if not self.client:
+            return
         try:
             data = {
                 "id": session_id,
@@ -49,6 +55,8 @@ class SupabaseRepository:
         self, session_id: str, user_id: str, role: str, content: str, metadata: Optional[Dict] = None
     ):
         """Logs a single turn (User or Model) to the database."""
+        if not self.client:
+            return
         try:
             # Verify session ownership (optimistic check or handled by RLS/Logic)
             # For strictness:
@@ -77,6 +85,9 @@ class SupabaseRepository:
         Retrieves the chat history for a session.
         """
         history = []
+        if not self.client:
+            return history
+
         try:
             # Ownership check 
             # (In a real scenario, we might want to fail hard if access is denied, but returning empty is safe fallback)
@@ -108,6 +119,8 @@ class SupabaseRepository:
 
     def log_usage(self, user_id: str, session_id: str, model: str, input_tokens: int, output_tokens: int, total_tokens: int):
         """Logs token usage for accounting."""
+        if not self.client:
+            return
         try:
             data = {
                 "user_id": user_id,
@@ -125,6 +138,8 @@ class SupabaseRepository:
     def get_analytics_summary(self) -> Dict[str, Any]:
         """Returns basic stats about usage."""
         stats = {}
+        if not self.client:
+            return stats
         try:
             res_interactions = self.client.table("interactions").select("*", count="exact").limit(0).execute()
             stats["total_interactions"] = res_interactions.count

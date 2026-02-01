@@ -16,7 +16,7 @@ def run_ingestion() -> bool:
     Runs the ingestion process: Loads docs, splits text, creates FAISS vector store.
     Returns True if successful, False otherwise.
     """
-    config = Config.load()
+    config = Config()
 
     # 1. Configuration
     knowledge_dir = os.path.join(os.getcwd(), "knowledge_base")
@@ -66,7 +66,7 @@ def run_ingestion() -> bool:
     logger.info("Generating embeddings and creating FAISS Vector Store...")
     try:
         embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001", google_api_key=config.GOOGLE_API_KEY
+            model="models/text-embedding-004", google_api_key=config.GOOGLE_API_KEY.get_secret_value()
         )
 
         # Initialize FAISS from documents
