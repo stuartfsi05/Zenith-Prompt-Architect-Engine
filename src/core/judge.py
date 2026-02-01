@@ -15,7 +15,6 @@ class TheJudge:
 
     def __init__(self, config: Config):
         self.config = config
-        # genai.configure moved to client init
         self.logger = logging.getLogger("ZenithJudge")
 
         self.client = genai.Client(api_key=self.config.GOOGLE_API_KEY.get_secret_value())
