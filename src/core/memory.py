@@ -120,22 +120,25 @@ class StrategicMemory:
         Checks chat history length and triggers consolidation if needed.
         Acts as a background maintenance task.
         """
-        if not hasattr(chat_session, "_curated_history"):
+        # Generic access via ChatSession interface
+        if not hasattr(chat_session, "history"):
             return
 
-        history_len = len(chat_session._curated_history)
+        # Access history property (getter)
+        current_history = chat_session.history
+        history_len = len(current_history)
 
         if history_len > max_history:
             prune_count = history_len - max_history
-            items_to_prune = chat_session._curated_history[:prune_count]
+            items_to_prune = current_history[:prune_count]
 
             logger.info(
                 f"Pruning History (Current: {history_len}). "
                 f"Archiving {len(items_to_prune)} items."
             )
             
-            # Prune first, then consolidate async
-            chat_session._curated_history = chat_session._curated_history[prune_count:]
+            # Prune first (setter), then consolidate async
+            chat_session.history = current_history[prune_count:]
             
             asyncio.create_task(self.consolidate_memory_async(items_to_prune))
 

@@ -20,6 +20,7 @@ from src.core.context_builder import ContextBuilder
 from src.core.analyzer import StrategicAnalyzer
 from src.core.judge import TheJudge
 from src.core.memory import StrategicMemory
+from src.core.validator import SemanticValidator
 
 # ... existing imports ...
 
@@ -94,6 +95,14 @@ def get_judge(config: Config = Depends(get_config)) -> TheJudge:
 def get_memory(config: Config = Depends(get_config)) -> StrategicMemory:
     return StrategicMemory(config)
 
+@lru_cache()
+def get_validator() -> SemanticValidator:
+    """
+    Singleton Validator.
+    Helps prevents future bottlenecks if validation becomes heavy (e.g., BERT models).
+    """
+    return SemanticValidator()
+
 
 # --- Transient Provider (Per Request) ---
 
@@ -105,7 +114,8 @@ def get_agent(
     context_builder: ContextBuilder = Depends(get_context_builder),
     analyzer: StrategicAnalyzer = Depends(get_analyzer),
     judge: TheJudge = Depends(get_judge),
-    memory: StrategicMemory = Depends(get_memory)
+    memory: StrategicMemory = Depends(get_memory),
+    validator: SemanticValidator = Depends(get_validator)
 ) -> ZenithAgent:
     """
     Transient Agent Factory.
@@ -128,7 +138,8 @@ def get_agent(
             context_builder=context_builder,
             analyzer=analyzer,
             judge=judge,
-            memory=memory
+            memory=memory,
+            validator=validator
         )
         return agent
     except Exception as e:
@@ -150,6 +161,7 @@ async def initialize_global_agent():
         get_analyzer(config)
         get_judge(config)
         get_memory(config)
+        get_validator()
         logger.info("Global Services Warmed Up Successfully.")
     except Exception as e:
         logger.critical(f"Startup Warmup Failed: {e}")

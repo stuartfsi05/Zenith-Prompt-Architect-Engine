@@ -37,7 +37,8 @@ class ZenithAgent:
         context_builder: ContextBuilder,
         analyzer: StrategicAnalyzer,
         judge: TheJudge,
-        memory: StrategicMemory
+        memory: StrategicMemory,
+        validator: SemanticValidator
     ):
         """
         Initialize the Agent with injected dependencies.
@@ -57,7 +58,7 @@ class ZenithAgent:
         self.knowledge_base = knowledge_base
         self.context_builder = context_builder
         self.analyzer = analyzer
-        self.validator = SemanticValidator() # Lightweight, can remain transient or be injected if needed later
+        self.validator = validator
         self.judge = judge
         self.memory = memory
         
@@ -75,7 +76,6 @@ class ZenithAgent:
         """
         Starts the chat session and loads history from the database.
         """
-        self.current_session_id = session_id
         self.current_session_id = session_id
 
         # Use HistoryService

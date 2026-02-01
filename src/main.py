@@ -72,7 +72,7 @@ async def main():
             from src.api.dependencies import (
                 get_db, get_llm, 
                 get_knowledge_base, get_context_builder, get_analyzer, 
-                get_judge, get_memory
+                get_judge, get_memory, get_validator
             )
             
             db = get_db(config)
@@ -82,6 +82,7 @@ async def main():
             analyzer = get_analyzer(config)
             judge = get_judge(config)
             memory = get_memory(config)
+            validator = get_validator()
             
             agent = ZenithAgent(
                 config, 
@@ -92,7 +93,8 @@ async def main():
                 context_builder,
                 analyzer,
                 judge,
-                memory
+                memory,
+                validator
             )
             
             # Start default session

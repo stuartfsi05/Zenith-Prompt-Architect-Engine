@@ -2,6 +2,28 @@ from abc import ABC, abstractmethod
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 
+class ChatSession(ABC):
+    """
+    Abstract wrapper for a chat session.
+    Providers should implement this to expose a unified history interface.
+    """
+    @property
+    @abstractmethod
+    def history(self) -> List[Any]:
+        """Returns the conversation history."""
+        pass
+    
+    @history.setter
+    @abstractmethod
+    def history(self, value: List[Any]):
+        """Sets/Prunes the conversation history."""
+        pass
+
+    @abstractmethod
+    async def send_message_async(self, message: str) -> Any:
+        pass
+
+
 class LLMProvider(ABC):
     """
     Abstract Base Class for Language Model Providers.
@@ -14,7 +36,7 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    def start_chat(self, history: List[Dict[str, Any]] = None) -> Any:
+    def start_chat(self, history: List[Dict[str, Any]] = None) -> ChatSession:
         """Starts a chat session with history."""
         pass
 
@@ -25,7 +47,7 @@ class LLMProvider(ABC):
 
     @abstractmethod
     async def send_message_async(
-        self, session: Any, message: str, stream: bool = False
+        self, session: ChatSession, message: str, stream: bool = False
     ) -> AsyncGenerator[str, None]:
         """Sends a message to an active session and returns stream/text."""
         pass
