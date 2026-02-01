@@ -20,3 +20,7 @@ data/knowledge/*
 # --- Zenith IP Protection: Prompts ---
 data/prompts/*
 !data/prompts/*.sample.md
+
+# --- Generated Data ---
+data/vector_store/
+.kb_checksum

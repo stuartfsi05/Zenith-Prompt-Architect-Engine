@@ -22,7 +22,7 @@ class HybridRetriever:
     def __init__(self, config: Config):
         self.config = config
         self.embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001", google_api_key=self.config.GOOGLE_API_KEY
+            model="models/text-embedding-004", google_api_key=self.config.GOOGLE_API_KEY.get_secret_value()
         )
         self.vector_store = None
         self.bm25_index = None

@@ -19,7 +19,7 @@ class RerankerService:
         self.llm = GoogleGenAIProvider(
             model_name=self.config.MODEL_NAME, temperature=0.0
         )
-        self.llm.configure(self.config.GOOGLE_API_KEY)
+        self.llm.configure(self.config.GOOGLE_API_KEY.get_secret_value())
 
     async def rerank(
         self, query: str, candidates: List[Document], top_n: int = 3
