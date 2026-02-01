@@ -1,12 +1,8 @@
 
-
-from src.utils.logger import setup_logger
-
-logger = setup_logger("ZenithConfig")
-
-
+import logging
 from pathlib import Path
 from typing import Optional
+
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

@@ -61,7 +61,7 @@ graph TD
     subgraph "Infraestrutura"
         RAG --> CloudDB[("Supabase (Vetores)")]
         Memory --> CloudDB
-        Agent -->|6. Gerar| LLM["Google Gemini 1.5 Flash"]
+        Agent -->|6. Gerar| LLM["Google Gemini 2.5 Flash"]
     end
     
     Agent -->|7. Auditar| Judge["O Juiz (Quality Gate)"]
@@ -80,7 +80,7 @@ graph TD
 
 *   **Python 3.10+**: Tipagem estrita e recursos async modernos.
 *   **FastAPI**: Framework web assíncrono de alta performance.
-*   **Google Gemini 1.5 Flash**: LLM primário, otimizado para velocidade e grandes janelas de contexto.
+*   **Google Gemini 2.5 Flash**: LLM primário, otimizado para velocidade e grandes janelas de contexto.
 *   **Supabase (PostgreSQL + pgvector)**: Banco de dados gerenciado para armazenamento vetorial e autenticação.
 *   **Pydantic**: Validação robusta de dados e gestão de configurações.
 *   **Rich**: Output de console bonito para experiência do desenvolvedor.
