@@ -1,139 +1,155 @@
 # Zenith | Prompt Architect Engine
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-Headless-009688)
-![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E)
-![Architecture](https://img.shields.io/badge/Architecture-Clean%20%26%20DI-purple)
-![License](https://img.shields.io/badge/License-Proprietary-red)
+![FastAPI](https://img.shields.io/badge/FastAPI-High%20Performance-009688)
+![Supabase](https://img.shields.io/badge/Supabase-Vector%20Store-3ECF8E)
+![Arquitetura](https://img.shields.io/badge/Arquitetura-Clean%20%26%20Serverless--Ready-purple)
+![Licença](https://img.shields.io/badge/Licença-Proprietária-red)
 
-**Zenith** é um motor de Agente de IA "Headless" (sem interface visual) desenhado para ser o cérebro de aplicações complexas. Ele não é apenas um chatbot; é um **Orquestrador Cognitivo**.
+**Zenith** é um **Motor Cognitivo Headless** (sem interface visual) de alta performance. Ele foi projetado para atuar como o cérebro autônomo de aplicações complexas, operando via API para fornecer inteligência pura como serviço.
 
-### O Que o Zenith Faz?
-Diferente de uma simples integração com o GPT, o Zenith funciona como um "funcionário digital" ultra-rápido. Você envia uma tarefa complexa e ele:
-1.  **Analisa** a intenção (codificação, raciocínio lógico, conversa criativa).
-2.  **Consulta** memórias passadas (banco de dados vetorial).
-3.  **Planeja** a melhor resposta.
-4.  **Executa** a tarefa e devolve o resultado estruturado.
-
-> **Exemplo Prático:** Se você conectar o Zenith ao WhatsApp da sua empresa, ele não apenas responderá "olá", mas consultará o histórico do cliente, verificará o tom de voz da marca e poderá até agendar reuniões (se expandido), tudo em milissegundos.
+Diferente de chatbots simples que reagem a palavras-chave, o Zenith age como um **Orquestrador Cognitivo**, capaz de classificação de intenção, planejamento estratégico, gestão de memória persistente e autoauditoria — tudo dentro de uma arquitetura de integração transiente e escalável.
 
 ---
 
-## 🏗️ A Arquitetura (Explicada)
+## 🧠 Capacidades Principais
 
-Este projeto é uma implementação de referência para **Sistemas de Agentes Escaláveis**. 
+O Zenith vai muito além de um simples "wrapper" de LLM. Ele implementa um pipeline cognitivo sofisticado:
 
-### O Problema dos Bots Comuns
-Em sistemas simples, quando 100 usuários falam com o bot ao mesmo tempo, o servidor pode confundir as memórias ou travar porque tenta segurar tudo na memória RAM.
+### 1. Roteador Cognitivo (Classificação de Intenção)
+Antes de responder, o Zenith analisa a **natureza** e a **complexidade** da solicitação.
+- **Raciocínio**: Aplica lógica e pensamento crítico.
+- **Codificação**: Alterna para modos de precisão técnica.
+- **Criativo**: Otimiza para liberdade generativa.
+- **Extração**: Foca na formatação estruturada de dados.
 
-### A Solução Zenith
-O Zenith foi desenhado seguindo padrões de engenharia de software corporativa para "nascer e morrer" a cada requisição.
+### 2. Memória Estratégica (Persistência Progressiva)
+O Zenith resolve o problema de "Memória de Peixinho" usando uma abordagem de camada dupla:
+- **Conteúdo de Curto Prazo**: Mantém o contexto imediato da conversa.
+- **Perfil de Usuário (Longo Prazo)**: Extrai e salva assincronamente fatos persistentes (ex: "Usuário é Dev Python", "Projeto é sobre Finanças") em um perfil dedicado, permitindo lembrar detalhes entre sessões.
+
+### 3. RAG Híbrido (Retrieval-Augmented Generation)
+Combina **Busca Vetorial** (Semântica) com **Palavras-chave** para recuperar contextos altamente relevantes da base de conhecimento, garantindo que as respostas sejam fundamentadas nos seus dados específicos, e não apenas no treinamento do modelo.
+
+### 4. O Juiz (Ciclo de Auto-Correção)
+Cada resposta é auditada por um modelo interno secundário ("O Juiz") antes de chegar ao usuário.
+- **Nota < 80?** A resposta é rejeitada e enviada de volta para refinamento.
+- **Violação de Segurança?** A resposta é bloqueada imediatamente.
+- **Resultado:** Você recebe apenas outputs de alta qualidade e verificados.
+
+---
+
+## 🏗️ Arquitetura Técnica
+
+O Zenith foi arquitetado para **Escalabilidade Empresarial** utilizando um **Padrão de Serviço Transiente**.
 
 ```mermaid
 graph TD
-    Client["Client App"] -->|HTTP JWT| API["Zenith API"]
+    Client["App Cliente/Frontend"] -->|Requisição HTTP| API["Zenith API (FastAPI)"]
     
-    subgraph "Zenith Engine"
-        API -->|1. Request| Agent["ZenithAgent (Transient)"]
-        Agent -->|2. Inject| Memory["Context Memory"]
-        Agent -->|3. Load| Persona["System Persona"]
+    subgraph "Zenith Engine (Escopo Transiente)"
+        API -->|1. Instanciar| Agent["Zenith Agent"]
+        Agent -->|2. Roteamento| Router["Roteador Cognitivo"]
+        
+        Router -->|3a. Simples| Executor["Resposta Direta"]
+        Router -->|3b. Complexa| Planner["Planejador Estratégico"]
+        
+        Agent -->|4. Recuperar| RAG["Recuperador Híbrido"]
+        Agent -->|5. Lembrar| Memory["Memória Estratégica"]
     end
     
-    subgraph "Infrastructure"
-        Agent -->|4. Use| DB["Supabase DB"]
-        Agent -->|5. Use| LLM["Google Gemini"]
+    subgraph "Infraestrutura"
+        RAG --> CloudDB[("Supabase (Vetores)")]
+        Memory --> CloudDB
+        Agent -->|6. Gerar| LLM["Google Gemini 1.5 Flash"]
     end
     
-    DB --> Cloud[("Database Cloud")]
-    LLM --> AI["LLM Provider"]
+    Agent -->|7. Auditar| Judge["O Juiz (Quality Gate)"]
+    Judge -- Passou --> Client
+    Judge -- Falhou --> Agent
 ```
 
-#### 1. Agentes Transientes (Transient Agents)
-A cada nova mensagem que chega, o Zenith:
-1.  **Nasce:** Cria um Agente novo do zero.
-2.  **Pensa:** Carrega o histórico do banco, processa a resposta.
-3.  **Morre:** O Agente é deletado da memória RAM imediatamente após responder.
-*Resultado:* O sistema pode atender 1 ou 1 milhão de usuários sem misturar as conversas e sem "estourar" a memória.
-
-#### 2. Injeção de Dependência (DI)
-O Agente não sabe "como" conectar no banco ou no Google. Ele apenas pede: *"Preciso de um Banco e de um LLM"*.
-*   `src/api/dependencies.py` é o "garçom" que entrega essas ferramentas prontas (Singletons). Isso torna o sistema ultra-robusto e fácil de testar.
-
-#### 3. Cérebro na Nuvem (Supabase)
-Usamos o Supabase não só como banco de dados, mas como extensão do cérebro:
-*   **Memória Infinita (Vector Store):** O Zenith lembra de conversas passadas usando busca semântica (`pgvector`). Ele não busca por palavras exatas, mas pelo *significado* da ideia.
-*   **Segurança (RLS):** Seus dados são protegidos por Row Level Security. O Usuário A jamais verá dados do Usuário B.
+### Padrões de Design Chave
+- **Ciclo de Vida Transiente**: O Agente "vive" apenas pela duração da requisição. Nenhum estado é mantido na memória RAM entre chamadas, garantindo que o servidor possa lidar com milhares de requisições simultâneas sem vazamentos de memória.
+- **Injeção de Dependência (DI)**: Todos os serviços (Banco de Dados, LLM, Memória) são injetados via `src/api/dependencies.py`. Isso garante modularidade e torna o sistema altamente testável.
+- **Fail-Fast**: O sistema valida todas as variáveis de ambiente e conexões na inicialização, prevenindo erros de execução em produção.
 
 ---
 
-## 🛠️ Tecnologias Principais
+## 🛠️ Stack Tecnológico
 
-*   **Python 3.10+**: A linguagem da IA. Tipagem estrita é usada para evitar erros bobos.
-*   **FastAPI**: O framework web mais rápido do mercado Python.
-*   **Google Gemini 2.5 Flash**: O modelo de linguagem escolhido. Rápido, barato e inteligente.
-*   **Pydantic**: Garante que os dados entrem e saiam exatamente no formato correto.
+*   **Python 3.10+**: Tipagem estrita e recursos async modernos.
+*   **FastAPI**: Framework web assíncrono de alta performance.
+*   **Google Gemini 1.5 Flash**: LLM primário, otimizado para velocidade e grandes janelas de contexto.
+*   **Supabase (PostgreSQL + pgvector)**: Banco de dados gerenciado para armazenamento vetorial e autenticação.
+*   **Pydantic**: Validação robusta de dados e gestão de configurações.
+*   **Rich**: Output de console bonito para experiência do desenvolvedor.
 
 ---
 
-## 🚀 Como Rodar o Projeto (Passo a Passo)
+## 🚀 Como Começar
 
 ### Pré-requisitos
-1.  Tenha **Python 3.10+** instalado.
-2.  Crie uma conta no [Supabase](https://supabase.com).
-3.  Pegue sua chave no [Google AI Studio](https://aistudio.google.com).
+1.  **Python 3.10+** instalado.
+2.  Um projeto no [Supabase](https://supabase.com).
+3.  Uma chave de API do [Google AI Studio](https://aistudio.google.com).
 
-### 1. Clonar e Instalar
-Abra seu terminal e rode:
+### 1. Instalação
+Clone o repositório e instale as dependências:
 ```bash
 git clone https://github.com/stuartfsi05/Zenith-Prompt-Architect-Engine.git
 cd Zenith-Prompt-Architect-Engine
 pip install -r requirements.txt
 ```
 
-### 2. Configurar o "Segredo" (.env)
-O sistema precisa das suas chaves para funcionar. Crie um arquivo chamado `.env` na pasta raiz e preencha:
+### 2. Configuração
+Crie um arquivo `.env` no diretório raiz:
 ```env
-# Seu cérebro (Google)
-GOOGLE_API_KEY=Cole_Sua_Chave_Google_Aqui
+# Provedor de IA
+GOOGLE_API_KEY=sua_chave_google_aqui
 MODEL_NAME=gemini-2.5-flash
 TEMPERATURE=0.1
 
-# Sua memória (Supabase)
-SUPABASE_URL=Sua_Url_Supabase
-SUPABASE_KEY=Sua_Chave_Secreta_Supabase
+# Banco de Dados & Memória
+SUPABASE_URL=sua_url_supabase
+SUPABASE_KEY=sua_chave_anonima_supabase
 
-# Arquivo de personalidade base
+# Sistema
 SYSTEM_PROMPT_PATH=src/core/prompts/system.md
 ```
 
-### 3. Iniciar o Motor
-Com tudo pronto, ligue o motor:
-
+### 3. Rodando o Motor
+Inicie a CLI interativa para testes:
 ```bash
 python src/run.py
 ```
-Se aparecer `[OK] System Online`, parabéns! Você tem uma IA rodando na sua máquina.
+
+Ou inicie o servidor da API:
+```bash
+uvicorn src.main:app --reload
+```
 
 ---
 
-## 📚 Como Usar a API
+## 📚 Documentação da API
 
-O servidor cria uma documentação automática e interativa.
-Com o servidor rodando, acesse no navegador:
+Com o servidor rodando, acesse a UI Swagger gerada automaticamente:
 👉 **`http://localhost:8000/docs`**
 
-Lá você pode testar o envio de mensagens diretamente pelo navegador, sem precisar programar um frontend.
+Esta documentação interativa permite testar endpoints, visualizar esquemas de dados e integrar com suas aplicações frontend de forma transparente.
 
 ---
 
-## 🧪 Qualidade de Código
+## 🧪 Controle de Qualidade
 
-Para garantir que tudo funcione perfeitamente, usamos ferramentas profissionais:
-*   **Testes:** Rodamos `python -m pytest` para garantir que nada quebrou.
-*   **Linting:** Seguimos o guia de estilo PEP-8 rigorosamente. Se o código está feio, o Zenith não aceita.
+Este projeto adere a rigorosos padrões de engenharia de software:
+- **Compliance PEP-8**: Base de código lintada e organizada.
+- **Type Hinting**: 100% de cobertura de tipos para segurança.
+- **Inversão de Dependência**: Alto desacoplamento entre lógica de negócios e infraestrutura.
 
 ---
 
 ## 📜 Licença
 
-Proprietário e Confidencial. Desenvolvido por Thiago Dias Precivalli.
+**Proprietário e Confidencial**.
+Desenvolvido e associado ao portfólio de **Thiago Dias Precivalli**.

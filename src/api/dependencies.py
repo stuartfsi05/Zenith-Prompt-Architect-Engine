@@ -9,18 +9,19 @@ from src.utils.loader import load_system_prompt
 from src.core.services.auth import AuthService
 from src.core.database import SupabaseRepository
 from src.core.llm.google_genai import GoogleGenAIProvider
-import logging
-
-logger = logging.getLogger("ZenithAPI")
-
-# --- Singleton Providers (@lru_cache) ---
-
 from src.core.knowledge.manager import StrategicKnowledgeBase
 from src.core.context_builder import ContextBuilder
 from src.core.analyzer import StrategicAnalyzer
 from src.core.judge import TheJudge
 from src.core.memory import StrategicMemory
 from src.core.validator import SemanticValidator
+import logging
+
+logger = logging.getLogger("ZenithAPI")
+
+# --- Singleton Providers (@lru_cache) ---
+
+
 
 # ... existing imports ...
 
