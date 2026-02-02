@@ -30,7 +30,7 @@ class SupabaseRepository:
             return
 
         try:
-            self.client = supabase.create_client(self.config.SUPABASE_URL, self.config.SUPABASE_KEY)
+            self.client = supabase.create_client(self.config.SUPABASE_URL, self.config.SUPABASE_KEY.get_secret_value())
             logger.info("Supabase client initialized.")
         except Exception as e:
             logger.error(f"Failed to initialize Supabase client: {e}")
