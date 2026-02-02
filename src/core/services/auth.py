@@ -23,7 +23,7 @@ class AuthService:
         """
         if not self._client:
             try:
-                self._client = create_client(self.config.SUPABASE_URL, self.config.SUPABASE_KEY)
+                self._client = create_client(self.config.SUPABASE_URL, self.config.SUPABASE_KEY.get_secret_value())
             except Exception as e:
                 logger.critical(f"Failed to initialize Supabase Auth Client: {e}")
                 raise e

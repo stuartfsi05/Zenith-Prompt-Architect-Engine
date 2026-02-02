@@ -3,169 +3,113 @@
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-High%20Performance-009688)
 ![Supabase](https://img.shields.io/badge/Supabase-Vector%20Store-3ECF8E)
-![Arquitetura](https://img.shields.io/badge/Arquitetura-Clean%20%26%20Serverless--Ready-purple)
-![Licença](https://img.shields.io/badge/Licença-Proprietária-red)
+![Render](https://img.shields.io/badge/Render-Deployed-purple)
 
 **Zenith** é um **Motor Cognitivo Headless** (sem interface visual) de alta performance. Ele foi projetado para atuar como o cérebro autônomo de aplicações complexas, operando via API para fornecer inteligência pura como serviço.
 
-Diferente de chatbots simples que reagem a palavras-chave, o Zenith age como um **Orquestrador Cognitivo**, capaz de classificação de intenção, planejamento estratégico, gestão de memória persistente e autoauditoria — tudo dentro de uma arquitetura de integração transiente e escalável.
+Este projeto está configurado para **Deploy Automático** via Render.
 
 ---
 
-## 🧠 Capacidades Principais
+## 📚 Documentação da API
 
-O Zenith vai muito além de um simples "wrapper" de LLM. Ele implementa um pipeline cognitivo sofisticado:
+A documentação completa e interativa dos endpoints está disponível automaticamente via Swagger UI:
 
-### 1. Roteador Cognitivo (Classificação de Intenção)
-Antes de responder, o Zenith analisa a **natureza** e a **complexidade** da solicitação.
-- **Raciocínio**: Aplica lógica e pensamento crítico.
-- **Codificação**: Alterna para modos de precisão técnica.
-- **Criativo**: Otimiza para liberdade generativa.
-- **Extração**: Foca na formatação estruturada de dados.
+- **Local**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Produção (Render)**: `https://<seu-app>.onrender.com/docs`
 
-### 2. Memória Estratégica (Persistência Progressiva)
-O Zenith resolve o problema de "Memória de Peixinho" usando uma abordagem de camada dupla:
-- **Conteúdo de Curto Prazo**: Mantém o contexto imediato da conversa.
-- **Perfil de Usuário (Longo Prazo)**: Extrai e salva assincronamente fatos persistentes (ex: "Usuário é Dev Python", "Projeto é sobre Finanças") em um perfil dedicado, permitindo lembrar detalhes entre sessões.
-
-### 3. RAG Híbrido (Retrieval-Augmented Generation)
-Combina **Busca Vetorial** (Semântica) com **Palavras-chave** para recuperar contextos altamente relevantes da base de conhecimento, garantindo que as respostas sejam fundamentadas nos seus dados específicos, e não apenas no treinamento do modelo.
-
-### 4. O Juiz (Ciclo de Auto-Correção)
-Cada resposta é auditada por um modelo interno secundário ("O Juiz") antes de chegar ao usuário.
-- **Nota < 80?** A resposta é rejeitada e enviada de volta para refinamento.
-- **Violação de Segurança?** A resposta é bloqueada imediatamente.
-- **Resultado:** Você recebe apenas outputs de alta qualidade e verificados.
+Use essa interface para entender os contratos de dados e testar requisições em tempo real.
 
 ---
 
-## 🏗️ Arquitetura Técnica
+## 🧠 O Que é o Zenith?
 
-O Zenith foi arquitetado para **Escalabilidade Empresarial** utilizando um **Padrão de Serviço Transiente**.
+O Zenith não é apenas um "chatbot". Ele é um **Orquestrador Cognitivo** que implementa um pipeline de raciocínio avançado:
 
-```mermaid
-graph TD
-    Client["App Cliente/Frontend"] -->|Requisição HTTP| API["Zenith API (FastAPI)"]
-    
-    subgraph "Zenith Engine (Escopo Transiente)"
-        API -->|1. Instanciar| Agent["Zenith Agent"]
-        Agent -->|2. Roteamento| Router["Roteador Cognitivo"]
-        
-        Router -->|3a. Simples| Executor["Resposta Direta"]
-        Router -->|3b. Complexa| Planner["Planejador Estratégico"]
-        
-        Agent -->|4. Recuperar| RAG["Recuperador Híbrido"]
-        Agent -->|5. Lembrar| Memory["Memória Estratégica"]
-    end
-    
-    subgraph "Infraestrutura"
-        RAG --> CloudDB[("Supabase (Vetores)")]
-        Memory --> CloudDB
-        Agent -->|6. Gerar| LLM["Google Gemini 2.5 Flash"]
-    end
-    
-    Agent -->|7. Auditar| Judge["O Juiz (Quality Gate)"]
-    Judge -- Passou --> Client
-    Judge -- Falhou --> Agent
-```
-
-### Padrões de Design Chave
-- **Ciclo de Vida Transiente**: O Agente "vive" apenas pela duração da requisição. Nenhum estado é mantido na memória RAM entre chamadas, garantindo que o servidor possa lidar com milhares de requisições simultâneas sem vazamentos de memória.
-- **Injeção de Dependência (DI)**: Todos os serviços (Banco de Dados, LLM, Memória) são injetados via `src/api/dependencies.py`. Isso garante modularidade e torna o sistema altamente testável.
-- **Fail-Fast**: O sistema valida todas as variáveis de ambiente e conexões na inicialização, prevenindo erros de execução em produção.
+1.  **Roteador Cognitivo**: Classifica a intenção do usuário (Planejamento, Raciocínio, Criatividade) antes de gerar resposta.
+2.  **Memória Estratégica**: Persiste fatos importantes sobre o usuário a longo prazo (via Supabase), superando a janela de contexto limitada dos LLMs.
+3.  **RAG Híbrido**: Recupera conhecimento técnico da base de dados vetorial para fundamentar respostas.
+4.  **Auto-Auditoria ("O Juiz")**: Um segundo modelo avalia criticamente a resposta do primeiro antes de entregá-la ao usuário.
 
 ---
 
-## 🛠️ Stack Tecnológico
+## 🚀 Como Executar (Localmente)
 
-*   **Python 3.10+**: Tipagem estrita e recursos async modernos.
-*   **FastAPI**: Framework web assíncrono de alta performance.
-*   **Google Gemini 2.5 Flash**: LLM primário, otimizado para velocidade e grandes janelas de contexto.
-*   **Supabase (PostgreSQL + pgvector)**: Banco de dados gerenciado para armazenamento vetorial e autenticação.
-*   **Pydantic**: Validação robusta de dados e gestão de configurações.
-*   **Rich**: Output de console bonito para experiência do desenvolvedor.
+### 1. Pré-requisitos
+*   Python 3.10+
+*   Conta no Google AI Studio (Gemini API)
+*   Projeto no Supabase (PostgreSQL + Vector)
 
----
-
-## 🚀 Como Começar
-
-### Pré-requisitos
-1.  **Python 3.10+** instalado.
-2.  Um projeto no [Supabase](https://supabase.com).
-3.  Uma chave de API do [Google AI Studio](https://aistudio.google.com).
-
-### 1. Instalação
-Clone o repositório e instale as dependências:
+### 2. Instalação
 ```bash
 git clone https://github.com/stuartfsi05/Zenith-Prompt-Architect-Engine.git
 cd Zenith-Prompt-Architect-Engine
 pip install -r requirements.txt
 ```
 
-### 2. Configuração
-Crie um arquivo `.env` no diretório raiz:
+### 3. Configuração (.env)
+Crie um arquivo `.env` na raiz do projeto. 
+
+> [!IMPORTANT]
+> **Atenção à Chave da Supabase:**
+> Não use a chave `sb_publishable...`. Você deve usar a chave **Legacy `anon` (JWT)**.
+> No painel Supabase vá em: *Project Settings > API > Legacy anon, service_role API keys*.
+
 ```env
-# Provedor de IA
-GOOGLE_API_KEY=sua_chave_google_aqui
+# Google Gemini
+GOOGLE_API_KEY=sua_chave_do_aistudio_aqui
 MODEL_NAME=gemini-2.5-flash
 TEMPERATURE=0.1
 
-# Banco de Dados & Memória
-SUPABASE_URL=sua_url_supabase
-SUPABASE_KEY=sua_chave_anonima_supabase
+# Supabase (Banco de Dados e Memória)
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_KEY=eyJ... (Cole aqui a chave 'anon' JWT longa)
 
 # Sistema
-SYSTEM_PROMPT_PATH=src/core/prompts/system.md
+SYSTEM_PROMPT_PATH=data/prompts/system_instruction.md
 ```
 
-### 3. Rodando o Motor
-Inicie a CLI interativa para testes:
+### 4. Rodando o Servidor
+Para iniciar a API localmente:
 ```bash
 python src/run.py
 ```
-
-Ou inicie o servidor da API:
-```bash
-uvicorn src.main:app --reload
-```
+O servidor iniciará em `http://0.0.0.0:8000`.
 
 ---
 
-## 📚 Documentação da API
+## ☁️ Deploy no Render
 
-Com o servidor rodando, acesse a UI Swagger gerada automaticamente:
-👉 **`http://localhost:8000/docs`**
+Este repositório já contém o arquivo de configuração `render.yaml` para deploy automático.
 
-Esta documentação interativa permite testar endpoints, visualizar esquemas de dados e integrar com suas aplicações frontend de forma transparente.
+### Passo a Passo
+1.  Crie uma conta no [Render](https://render.com).
+2.  Conecte sua conta do GitHub.
+3.  No painel do Render, clique em **"New"** > **"Web Service"**.
+4.  Selecione este repositório.
+5.  O Render detectará o `render.yaml` e configurará o ambiente automaticamente.
+
+### Configuração de Ambiente (Environment Variables)
+O arquivo `.env` **não** é enviado para o GitHub por segurança. Você deve configurar as variáveis manualmente no Render:
+
+1.  Vá no Dashboard do seu serviço no Render.
+2.  Clique em **Environment**.
+3.  Adicione as mesmas variáveis do seu `.env` local (`GOOGLE_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY`, etc).
+
+> [!NOTE]
+> Sempre que você alterar uma senha ou chave, lembre-se de atualizar no painel do Render, pois isso não é sincronizado automaticamente pelo Git.
 
 ---
 
-## 🧪 Controle de Qualidade
+## 🛠️ Stack Tecnológico
 
-Este projeto adere a rigorosos padrões de engenharia de software:
-- **Compliance PEP-8**: Base de código lintada e organizada.
-- **Type Hinting**: 100% de cobertura de tipos para segurança.
-- **Inversão de Dependência**: Alto desacoplamento entre lógica de negócios e infraestrutura.
-
----
-
-## ❓ Troubleshooting (Solução de Problemas)
-
-### Erro 429: Resource Exhausted (Quota Exceeded)
-Se você encontrar erros como `429` ou falhas na ingestão de conhecimento, isso geralmente está relacionado aos limites da API do Google.
-
-*   **Modelo de Embeddings**: O sistema usa `embedding-001`. Em contas gratuitas, o limite de requisições por minuto (RPM) pode ser baixo.
-*   **Solução**:
-    1.  Verifique suas cotas no [Google AI Studio](https://aistudio.google.com).
-    2.  Considere ativar o **Billing (Pagamento)** no Google Cloud Console para aumentar as cotas.
-    3.  Se o erro persistir na inicialização, o sistema entrará em modo de *Degradação Graciosa* (funcionará sem memória atualizada).
-
-### Permissões da API Key
-Certifique-se de que sua `GOOGLE_API_KEY` tem permissão para acessar tanto a **Generative Language API** (para o modelo Gemini) quanto a API de Embeddings.
+*   **Linguagem**: Python 3.10
+*   **Framework Web**: FastAPI + Uvicorn
+*   **LLM Provider**: Google Gemini 2.5 Flash
+*   **Banco Vetorial**: Supabase (pgvector)
+*   **Arquitetura**: Transiente (Stateless) & Injeção de Dependência
 
 ---
 
 ## 📜 Licença
-
-**Proprietário e Confidencial**.
-Desenvolvido e associado ao portfólio de **Thiago Dias Precivalli**.
+Projeto proprietário. Desenvolvido por Thiago Dias Precivalli.
