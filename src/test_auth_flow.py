@@ -38,7 +38,7 @@ except Exception as e:
         exit(1)
 
 token = session.access_token
-print(f"Got token: {token[:10]}...")
+print(f"Got token: {token}")
 
 # Call API
 headers = {"Authorization": f"Bearer {token}"}
