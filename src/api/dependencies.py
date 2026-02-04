@@ -57,7 +57,11 @@ def get_llm(
     Priority: Header 'x-google-api-key' > Config.GOOGLE_API_KEY > Error
     """
     try:
-        final_api_key = api_key
+        final_api_key = None
+        
+        # Check if api_key is a valid string (not the default Security object)
+        if isinstance(api_key, str) and api_key.strip():
+            final_api_key = api_key
         
         # Fallback to config
         if not final_api_key:
@@ -175,7 +179,8 @@ async def initialize_global_agent():
     try:
         config = get_config()
         get_db(config)
-        get_llm(config)
+        # Pass explicit None to trigger fallback logic and avoid Security object issue
+        get_llm(config, api_key=None)
         get_knowledge_base(config)
         get_context_builder()
         get_analyzer(config)
