@@ -219,6 +219,8 @@ class ZenithAgent:
                  
                  if retry_score >= min_score:
                      yield retry_response_buffer
+                     # Append Quality Panel for Retried Response
+                     yield f"\n\n### Painel de Qualidade (Avaliação do Juiz)\n- **Pontuação Final**: {retry_score}/100\n- **Feedback**: {retry_eval.get('feedback', 'Aprovado após refinamento.')}\n"
                  else:
                      logger.warning(f"Circuit Breaker Triggered: Retry Score {retry_score} < {min_score}")
                      yield (
@@ -232,3 +234,6 @@ class ZenithAgent:
                  logger.error(f"Refinement failed: {e}")
                  yield f"\n\n[error]Refinement process failed: {str(e)}[/error]"
                  metadata["error_refinement"] = str(e)
+        else:
+            # Append Quality Panel for Original Response
+            yield f"\n\n### Painel de Qualidade (Avaliação do Juiz)\n- **Pontuação Final**: {score}/100\n- **Feedback**: {feedback}\n"
