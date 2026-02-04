@@ -17,3 +17,12 @@ class ChatResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str = "ok"
     version: str = "1.0.0"
+
+class LoginRequest(BaseModel):
+    email: str = Field(..., description="User email for authentication in Supabase")
+    password: str = Field(..., description="User password")
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user_info: Optional[dict] = Field(None, description="Basic user information")
