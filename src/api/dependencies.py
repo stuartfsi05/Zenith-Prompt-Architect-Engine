@@ -1,5 +1,5 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, status, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader
 from functools import lru_cache
 from typing import Optional
 
@@ -47,15 +47,32 @@ def get_db(config: Config = Depends(get_config)) -> SupabaseRepository:
         logger.critical(f"Failed to initialize DB: {e}")
         raise RuntimeError("Database initialization failed") from e
 
-@lru_cache()
-def get_llm(config: Config = Depends(get_config)) -> GoogleGenAIProvider:
+def get_llm(
+    config: Config = Depends(get_config),
+    api_key: Optional[str] = Security(APIKeyHeader(name="x-google-api-key", auto_error=False))
+) -> GoogleGenAIProvider:
     """
-    Singleton LLM Provider.
-    Created once, reused for all requests.
+    Transient LLM Provider.
+    Creates a new instance for every request to support dynamic API Keys.
+    Priority: Header 'x-google-api-key' > Config.GOOGLE_API_KEY > Error
     """
     try:
-        logger.info(f"Initializing Singleton GoogleGenAIProvider ({config.MODEL_NAME}).")
-        # Load default system prompt for provider initialization
+        final_api_key = api_key
+        
+        # Fallback to config
+        if not final_api_key:
+             if config.GOOGLE_API_KEY:
+                final_api_key = config.GOOGLE_API_KEY.get_secret_value()
+        
+        if not final_api_key:
+             raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing Google API Key. Provide 'x-google-api-key' header or configure server default."
+            )
+
+        logger.debug(f"Initializing Transient GoogleGenAIProvider ({config.MODEL_NAME}). Key provided: {'Yes (Header)' if api_key else 'Yes (Default)'}")
+        
+        # Load default system prompt
         default_sys_prompt = load_system_prompt(config.SYSTEM_PROMPT_PATH)
         
         provider = GoogleGenAIProvider(
@@ -63,11 +80,13 @@ def get_llm(config: Config = Depends(get_config)) -> GoogleGenAIProvider:
             temperature=config.TEMPERATURE,
             system_instruction=default_sys_prompt
         )
-        provider.configure(config.GOOGLE_API_KEY.get_secret_value())
+        provider.configure(final_api_key)
         return provider
+    except HTTPException:
+        raise
     except Exception as e:
         logger.critical(f"Failed to initialize LLM: {e}")
-        raise RuntimeError("LLM initialization failed") from e
+        raise HTTPException(status_code=500, detail="LLM initialization failed")
 
 @lru_cache()
 def get_auth_service(config: Config = Depends(get_config)) -> AuthService:
