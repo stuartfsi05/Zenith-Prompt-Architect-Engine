@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from src.api.models import ChatRequest, ChatResponse, HealthResponse
-from src.api.dependencies import get_agent, get_current_user
+from src.api.models import ChatRequest, ChatResponse, HealthResponse, LoginRequest, TokenResponse
+from src.api.dependencies import get_agent, get_current_user, get_auth_service
 from src.core.agent import ZenithAgent
+from src.core.services.auth import AuthService
 from gotrue.types import User
 import json
 import logging
@@ -13,6 +14,33 @@ logger = logging.getLogger("ZenithAPI")
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     return HealthResponse(status="ok", version="1.0.0")
+
+@router.post("/token", response_model=TokenResponse)
+async def login_for_access_token(
+    form_data: LoginRequest,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """
+    Exchanges user credentials (email/password) for a Supabase JWT Access Token.
+    """
+    logger.info(f"Token generation request for: {form_data.email}")
+    session_data = auth_service.login_user(form_data.email, form_data.password)
+    
+    # Extract user info safely
+    user = session_data.get("user")
+    user_info = None
+    if user:
+         user_info = {
+             "id": user.id,
+             "email": user.email,
+             "role": user.role
+         }
+
+    return TokenResponse(
+        access_token=session_data["access_token"],
+        token_type=session_data["token_type"],
+        user_info=user_info
+    )
 
 @router.post("/chat")
 async def chat_endpoint(

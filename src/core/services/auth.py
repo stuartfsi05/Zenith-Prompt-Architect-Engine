@@ -56,3 +56,26 @@ class AuthService:
                 detail="Could not validate credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+    def login_user(self, email: str, password: str) -> dict:
+        """
+        Authenticates a user with Supabase using email and password.
+        Returns the session/token object.
+        """
+        try:
+            response = self.client.auth.sign_in_with_password({"email": email, "password": password})
+            if not response.session:
+                raise ValueError("No session returned from Supabase login.")
+            
+            return {
+                "access_token": response.session.access_token,
+                "token_type": response.session.token_type,
+                "user": response.user
+            }
+        except Exception as e:
+            logger.warning(f"Login failed for {email}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
