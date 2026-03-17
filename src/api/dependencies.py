@@ -1,134 +1,177 @@
-from fastapi import Depends, HTTPException, status, Security
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader
-from functools import lru_cache
-from typing import Optional
-
-from src.core.config import Config
-from src.core.agent import ZenithAgent
-from src.utils.loader import load_system_prompt
-from src.core.services.auth import AuthService
-from src.core.database import SupabaseRepository
-from src.core.llm.google_genai import GoogleGenAIProvider
-from src.core.knowledge.manager import StrategicKnowledgeBase
-from src.core.context_builder import ContextBuilder
-from src.core.analyzer import StrategicAnalyzer
-from src.core.judge import TheJudge
-from src.core.memory import StrategicMemory
-from src.core.validator import SemanticValidator
 import logging
+from typing import Dict, Optional, Any
 
+from fastapi import Depends, HTTPException, Security, status
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
+
+from src.core.agent import ZenithAgent
+from src.core.analyzer import StrategicAnalyzer
+from src.core.config import Config
+from src.core.context_builder import ContextBuilder
+from src.core.database import SupabaseRepository
+from src.core.judge import TheJudge
+from src.core.knowledge.manager import StrategicKnowledgeBase
+from src.core.llm.google_genai import GoogleGenAIProvider
+from src.core.memory import StrategicMemory
+from src.core.services.auth import AuthService
+from src.core.validator import SemanticValidator
+from src.utils.loader import load_system_prompt
+
+# Logger for API logic
 logger = logging.getLogger("ZenithAPI")
 
-# --- Singleton Providers (@lru_cache) ---
+# Internal registry for singleton service instances
+_singletons: Dict[str, Any] = {}
 
 
-
-# ... existing imports ...
-
-# --- Singleton Providers (@lru_cache) ---
-
-@lru_cache()
 def get_config() -> Config:
     """
-    Returns a cached instance of the configuration.
-    """
-    return Config()
+    Returns the global application configuration.
 
-@lru_cache()
+    The configuration is loaded once and cached in the singleton registry.
+
+    Returns:
+        Config: The application configuration instance.
+    """
+    if "config" not in _singletons:
+        _singletons["config"] = Config()
+    return _singletons["config"]
+
+
 def get_db(config: Config = Depends(get_config)) -> SupabaseRepository:
     """
-    Singleton Database Repository.
-    Created once, reused for all requests.
+    Provides a singleton Database Repository instance.
+
+    Args:
+        config (Config): The application configuration.
+
+    Returns:
+        SupabaseRepository: The initialized database interface.
+
+    Raises:
+        RuntimeError: If the database repository fails to initialize.
     """
-    try:
-        logger.info("Initializing Singleton SupabaseRepository.")
-        return SupabaseRepository(config)
-    except Exception as e:
-        logger.critical(f"Failed to initialize DB: {e}")
-        raise RuntimeError("Database initialization failed") from e
+    if "db" not in _singletons:
+        try:
+            logger.info("Initializing persistent registry: SupabaseRepository.")
+            _singletons["db"] = SupabaseRepository(config)
+        except Exception as e:
+            logger.critical(f"Critical Error: Persistence Layer failed to boot: {e}")
+            raise RuntimeError("Database initialization failed") from e
+    return _singletons["db"]
+
 
 def get_llm(
     config: Config = Depends(get_config),
-    api_key: Optional[str] = Security(APIKeyHeader(name="x-google-api-key", auto_error=False))
+    api_key: Optional[str] = Security(APIKeyHeader(name="x-google-api-key", auto_error=False)),
 ) -> GoogleGenAIProvider:
     """
-    Transient LLM Provider.
-    Creates a new instance for every request to support dynamic API Keys.
-    Priority: Header 'x-google-api-key' > Config.GOOGLE_API_KEY > Error
+    Provides a transient LLM Provider instance for the current request.
+
+    Features dynamic API key extraction from the 'x-google-api-key' header,
+    falling back to server-side environment variables if the header is absent.
+
+    Args:
+        config (Config): Application configuration.
+        api_key (Optional[str]): Custom API key provided in the request headers.
+
+    Returns:
+        GoogleGenAIProvider: Specialized GenAI interface.
+
+    Raises:
+        HTTPException: If no API key is found or initialization fails.
     """
     try:
+        # Determine effective API Key
         final_api_key = None
-        
-        # Check if api_key is a valid string (not the default Security object)
         if isinstance(api_key, str) and api_key.strip():
             final_api_key = api_key
-        
-        # Fallback to config
+        elif config.GOOGLE_API_KEY:
+            final_api_key = config.GOOGLE_API_KEY.get_secret_value()
+
         if not final_api_key:
-             if config.GOOGLE_API_KEY:
-                final_api_key = config.GOOGLE_API_KEY.get_secret_value()
-        
-        if not final_api_key:
-             raise HTTPException(
+            raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Missing Google API Key. Provide 'x-google-api-key' header or configure server default."
+                detail="Missing Google API Key. Provide 'x-google-api-key' header or contact the admin.",
             )
 
-        logger.debug(f"Initializing Transient GoogleGenAIProvider ({config.MODEL_NAME}). Key provided: {'Yes (Header)' if api_key else 'Yes (Default)'}")
-        
-        # Load default system prompt
+        logger.debug(
+            f"Instantiating GenAI Provider ({config.MODEL_NAME}). "
+            f"Key source: {'Request Header' if api_key else 'Global Config'}."
+        )
+
+        # Pre-load core instruction set
         default_sys_prompt = load_system_prompt(config.SYSTEM_PROMPT_PATH)
-        
+
         provider = GoogleGenAIProvider(
             model_name=config.MODEL_NAME,
             temperature=config.TEMPERATURE,
-            system_instruction=default_sys_prompt
+            system_instruction=default_sys_prompt,
         )
         provider.configure(final_api_key)
         return provider
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.critical(f"Failed to initialize LLM: {e}")
-        raise HTTPException(status_code=500, detail="LLM initialization failed")
+        logger.exception(f"GenAI Initialization Crash: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER__ERROR,
+            detail="Neural Engine initialization failed.",
+        )
 
-@lru_cache()
+
 def get_auth_service(config: Config = Depends(get_config)) -> AuthService:
-    """
-    Singleton Auth Service.
-    """
-    return AuthService(config)
+    """Provides a singleton Authentication Service."""
+    if "auth_service" not in _singletons:
+        _singletons["auth_service"] = AuthService(config)
+    return _singletons["auth_service"]
 
-@lru_cache()
+
 def get_knowledge_base(config: Config = Depends(get_config)) -> StrategicKnowledgeBase:
-    return StrategicKnowledgeBase(config)
+    """Provides a singleton RAG Retrieval Engine."""
+    if "knowledge_base" not in _singletons:
+        _singletons["knowledge_base"] = StrategicKnowledgeBase(config)
+    return _singletons["knowledge_base"]
 
-@lru_cache()
+
 def get_context_builder() -> ContextBuilder:
-    return ContextBuilder()
+    """Provides a singleton Prompt Architect/Context Builder."""
+    if "context_builder" not in _singletons:
+        _singletons["context_builder"] = ContextBuilder()
+    return _singletons["context_builder"]
 
-@lru_cache()
+
 def get_analyzer(config: Config = Depends(get_config)) -> StrategicAnalyzer:
-    return StrategicAnalyzer(config)
+    """Provides a singleton Strategic Intent Analyzer."""
+    if "analyzer" not in _singletons:
+        _singletons["analyzer"] = StrategicAnalyzer(config)
+    return _singletons["analyzer"]
 
-@lru_cache()
+
 def get_judge(config: Config = Depends(get_config)) -> TheJudge:
-    return TheJudge(config)
+    """Provides a singleton Quality Evaluation Engine."""
+    if "judge" not in _singletons:
+        _singletons["judge"] = TheJudge(config)
+    return _singletons["judge"]
 
-@lru_cache()
+
 def get_memory(config: Config = Depends(get_config)) -> StrategicMemory:
-    return StrategicMemory(config)
+    """Provides a singleton Episodic/Semantic Memory Service."""
+    if "memory" not in _singletons:
+        _singletons["memory"] = StrategicMemory(config)
+    return _singletons["memory"]
 
-@lru_cache()
+
 def get_validator() -> SemanticValidator:
-    """
-    Singleton Validator.
-    Helps prevents future bottlenecks if validation becomes heavy (e.g., BERT models).
-    """
-    return SemanticValidator()
+    """Provides a singleton Input/Output Consistency Validator."""
+    if "validator" not in _singletons:
+        _singletons["validator"] = SemanticValidator()
+    return _singletons["validator"]
 
 
-# --- Transient Provider (Per Request) ---
+# --- Request-Scoped (Transient) dependencies ---
+
 
 def get_agent(
     config: Config = Depends(get_config),
@@ -139,21 +182,21 @@ def get_agent(
     analyzer: StrategicAnalyzer = Depends(get_analyzer),
     judge: TheJudge = Depends(get_judge),
     memory: StrategicMemory = Depends(get_memory),
-    validator: SemanticValidator = Depends(get_validator)
+    validator: SemanticValidator = Depends(get_validator),
 ) -> ZenithAgent:
     """
-    Transient Agent Factory.
-    Creates a NEW ZenithAgent instance for every request.
-    Injects the Singleton services.
-    
-    Ensures request isolation and prevents race conditions.
+    Factory dependency that builds a new ZenithAgent per request.
+
+    This ensures complete request isolation while sharing heavy singleton services
+    (Database, Analyzers, Memory controllers) across the application.
+
+    Returns:
+        ZenithAgent: An orchestrator instance ready for processing.
     """
     try:
-        # Load system instruction (cached or fast IO)
         system_instruction = load_system_prompt(config.SYSTEM_PROMPT_PATH)
-        
-        # Instantiate Transient Agent
-        agent = ZenithAgent(
+
+        return ZenithAgent(
             config=config,
             system_instruction=system_instruction,
             db=db,
@@ -163,23 +206,27 @@ def get_agent(
             analyzer=analyzer,
             judge=judge,
             memory=memory,
-            validator=validator
+            validator=validator,
         )
-        return agent
     except Exception as e:
-        logger.error(f"Failed to create Transient Agent: {e}")
-        raise HTTPException(status_code=500, detail="Agent instantiation failed")
+        logger.error(f"Agent Orchestrator Assembly Failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to initialize the Zenith Processing Unit.",
+        )
 
-# --- Startup ---
-# Startup warm-up sequence
-async def initialize_global_agent():
+
+async def initialize_global_agent() -> None:
     """
-    Initializes and validates global service providers.
+    Performs a warm-up sequence for all global singleton services.
+
+    Expected to be called during application startup (lifespan) to verify
+    connectivity to external providers (Database, LLM) immediately.
     """
     try:
         config = get_config()
         get_db(config)
-        # Pass explicit None to trigger fallback logic and avoid Security object issue
+        # Verify LLM availability (checks if API key exists in environment)
         get_llm(config, api_key=None)
         get_knowledge_base(config)
         get_context_builder()
@@ -187,23 +234,30 @@ async def initialize_global_agent():
         get_judge(config)
         get_memory(config)
         get_validator()
-        logger.info("Global Services Warmed Up Successfully.")
+        logger.info("Universal Service Discovery: All core modules are ONLINE.")
     except Exception as e:
-        logger.critical(f"Startup Warmup Failed: {e}")
-        # Critical failure if DB/LLM cannot initialize
+        logger.critical(f"Lifespan Initialization Failure: {e}")
         raise e
 
-# --- Auth ---
-security = HTTPBearer()
+
+# --- Authentication Context ---
+
+security_scheme = HTTPBearer()
+
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    auth_service: AuthService = Depends(get_auth_service)
-):
+    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> Any:
     """
-    Verifies the JWT token using Supabase Auth via AuthService.
-    Returns the user object if valid.
+    Authentication Guard: Verifies the Bearer token against the Auth Provider.
+
+    Returns:
+        Any: User metadata if authorized.
+
+    Raises:
+        HTTPException: For invalid or expired tokens.
     """
-    token = credentials.credentials
-    return auth_service.verify_token(token)
+    return auth_service.verify_token(credentials.credentials)
+
 
