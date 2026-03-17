@@ -15,10 +15,10 @@ def mock_env(monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "test_key")
     monkeypatch.setenv("MODEL_NAME", "test-model")
     monkeypatch.setenv("TEMPERATURE", "0.5")
-    monkeypatch.setenv("SYSTEM_PROMPT_PATH", "test/prompts/system.md")
 
 
 @pytest.fixture
 def mock_config(mock_env):
     """Returns a loaded Config object with mock values."""
-    return Config.load()
+    return Config()
+
