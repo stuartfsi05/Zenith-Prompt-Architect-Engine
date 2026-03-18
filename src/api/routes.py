@@ -1,5 +1,8 @@
 import json
 import logging
+import os
+import smtplib
+from email.mime.text import MIMEText
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -13,6 +16,7 @@ from src.api.models import (
     HealthResponse,
     LoginRequest,
     TokenResponse,
+    FeedbackRequest,
 )
 from src.core.agent import ZenithAgent
 from src.core.services.auth import AuthService
@@ -112,4 +116,56 @@ async def chat_endpoint(
             yield json.dumps(error_payload) + "\n"
 
     return StreamingResponse(event_generator(), media_type="application/x-ndjson")
+
+
+@router.post("/feedback")
+async def receive_feedback(
+    request: FeedbackRequest,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """
+    Secure feedback collection endpoint.
+    Transfers user sentiment reports to the developer's protected account.
+    
+    The destination email is intentionally hidden from the frontend for privacy reasons.
+    """
+    logger.info(f"Identity Sentiment: Feedback received from {user.email}")
+    
+    # Destination email (Server-side only)
+    TARGET_EMAIL = "stuart_fsi05@hotmail.com"
+    
+    # Email sending logic using SMTP
+    try:
+        smtp_user = os.environ.get("SMTP_USER")
+        smtp_password = os.environ.get("SMTP_PASSWORD")
+        smtp_server = os.environ.get("SMTP_SERVER", "smtp.office365.com")
+        smtp_port = int(os.environ.get("SMTP_PORT", 587))
+        
+        # Prepare the email container
+        msg = MIMEText(f"Feedback from User: {user.email}\n\nContent:\n{request.message}")
+        msg['Subject'] = 'Novo Feedback - Zenith Interface'
+        msg['From'] = smtp_user if smtp_user else TARGET_EMAIL
+        msg['To'] = TARGET_EMAIL
+        
+        if smtp_user and smtp_password:
+            # Connect and send
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.send_message(msg)
+            logger.info("Feedback successfully sent to the target email via SMTP.")
+        else:
+            logger.warning("SMTP credentials are not configured in environment variables. Falling back to log simulation.")
+            logger.info(f"--- FEEDBACK PAYLOAD SIMULATION ---")
+            logger.info(f"FROM: {user.email}")
+            logger.info(f"CONTENT: {request.message}")
+            logger.info(f"TARGET_EMAIL: {TARGET_EMAIL}")
+            logger.info(f"--- END PAYLOAD ---")
+            
+    except Exception as e:
+        logger.error(f"Failed to send feedback email: {e}")
+        # We don't want to expose email failure to the end user if we can avoid it.
+        # But logging it is essential for the admin.
+
+    return {"status": "success", "message": "Feedback transmitido com sucesso (Zenith Neural Node)."}
 

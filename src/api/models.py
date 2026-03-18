@@ -26,3 +26,6 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user_info: Optional[dict] = Field(None, description="Basic user information")
+
+class FeedbackRequest(BaseModel):
+    message: str = Field(..., description="The feedback content")

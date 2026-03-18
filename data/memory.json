@@ -1,4 +1,9 @@
 {
     "master_summary": "",
-    "user_profile": {}
+    "user_profile": {
+        "interesses": [
+            "Engenharia de Prompt"
+        ],
+        "tipo_de_solicitacao_comum": "Refinamento de Prompt"
+    }
 }
