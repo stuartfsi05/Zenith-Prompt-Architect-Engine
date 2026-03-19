@@ -4,6 +4,12 @@
         "interesses": [
             "Engenharia de Prompt"
         ],
-        "tipo_de_solicitacao_comum": "Refinamento de Prompt"
+        "tipo_de_solicitacao_comum": "Refinamento de Prompt",
+        "preferencias_de_conteudo": [
+            "Detalhado",
+            "Estruturado",
+            "Prático",
+            "Aprofundado"
+        ]
     }
 }
