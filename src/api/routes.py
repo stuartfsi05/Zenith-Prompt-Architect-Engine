@@ -9,7 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from gotrue.types import User
 
-from src.api.dependencies import get_agent, get_auth_service, get_current_user
+from src.api.dependencies import get_agent, get_auth_service, get_current_user, get_config, get_db
+from src.core.config import Config
 from src.api.models import (
     ChatRequest,
     ChatResponse,
@@ -118,10 +119,21 @@ async def chat_endpoint(
     return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
 
+@router.get("/sessions")
+async def get_recent_sessions(
+    user: User = Depends(get_current_user),
+    db = Depends(get_db)
+) -> dict:
+    """Retrieves the recent chat sessions for the authenticated user."""
+    sessions = db.get_sessions(user.id, limit=15)
+    return {"status": "success", "sessions": sessions}
+
+
 @router.post("/feedback")
 async def receive_feedback(
     request: FeedbackRequest,
     user: User = Depends(get_current_user),
+    config: Config = Depends(get_config),
 ) -> dict:
     """
     Secure feedback collection endpoint.
@@ -136,10 +148,10 @@ async def receive_feedback(
     
     # Email sending logic using SMTP
     try:
-        smtp_user = os.environ.get("SMTP_USER")
-        smtp_password = os.environ.get("SMTP_PASSWORD")
-        smtp_server = os.environ.get("SMTP_SERVER", "smtp.office365.com")
-        smtp_port = int(os.environ.get("SMTP_PORT", 587))
+        smtp_user = config.SMTP_USER.strip('\"\'') if config.SMTP_USER else None
+        smtp_password = config.SMTP_PASSWORD.get_secret_value().strip('\"\'') if config.SMTP_PASSWORD else None
+        smtp_server = config.SMTP_SERVER.strip('\"\'') if config.SMTP_SERVER else "smtp.office365.com"
+        smtp_port = config.SMTP_PORT
         
         # Prepare the email container
         msg = MIMEText(f"Feedback from User: {user.email}\n\nContent:\n{request.message}")
@@ -155,7 +167,7 @@ async def receive_feedback(
                 server.send_message(msg)
             logger.info("Feedback successfully sent to the target email via SMTP.")
         else:
-            logger.warning("SMTP credentials are not configured in environment variables. Falling back to log simulation.")
+            logger.warning("SMTP credentials are not configured properly. Falling back to log simulation.")
             logger.info(f"--- FEEDBACK PAYLOAD SIMULATION ---")
             logger.info(f"FROM: {user.email}")
             logger.info(f"CONTENT: {request.message}")

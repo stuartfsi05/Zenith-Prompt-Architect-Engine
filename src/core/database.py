@@ -117,6 +117,24 @@ class SupabaseRepository:
 
         return history
 
+    def get_sessions(self, user_id: str, limit: int = 15) -> List[Dict[str, Any]]:
+        """Returns the most recent sessions for a user."""
+        if not self.client:
+            return []
+        try:
+            response = (
+                self.client.table("sessions")
+                .select("id, last_active")
+                .eq("user_id", user_id)
+                .order("last_active", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            logger.error(f"Failed to fetch sessions: {e}")
+            return []
+
     def log_usage(self, user_id: str, session_id: str, model: str, input_tokens: int, output_tokens: int, total_tokens: int):
         """Logs token usage for accounting."""
         if not self.client:

@@ -86,18 +86,16 @@ def get_llm(
         final_api_key = None
         if isinstance(api_key, str) and api_key.strip():
             final_api_key = api_key
-        elif config.GOOGLE_API_KEY:
-            final_api_key = config.GOOGLE_API_KEY.get_secret_value()
 
         if not final_api_key:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Missing Google API Key. Provide 'x-google-api-key' header or contact the admin.",
+                detail="Sua Google API Key não foi configurada. Insira sua chave no menu lateral para acessar o Zenith.",
             )
 
         logger.debug(
             f"Instantiating GenAI Provider ({config.MODEL_NAME}). "
-            f"Key source: {'Request Header' if api_key else 'Global Config'}."
+            f"Key source: Request Header."
         )
 
         # Pre-load core instruction set
@@ -226,8 +224,6 @@ async def initialize_global_agent() -> None:
     try:
         config = get_config()
         get_db(config)
-        # Verify LLM availability (checks if API key exists in environment)
-        get_llm(config, api_key=None)
         get_knowledge_base(config)
         get_context_builder()
         get_analyzer(config)
