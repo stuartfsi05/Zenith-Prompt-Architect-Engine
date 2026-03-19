@@ -58,6 +58,12 @@ class Config(BaseSettings):
     SUPABASE_URL: Optional[str] = None
     SUPABASE_KEY: Optional[SecretStr] = None
 
+    # E-mail (Feedback)
+    SMTP_SERVER: Optional[str] = "smtp.office365.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[SecretStr] = None
+
     def validate_secrets(self):
         """Optional explicit validation hook"""
         if not self.GOOGLE_API_KEY:
