@@ -89,7 +89,7 @@ def get_llm(
 
         if not final_api_key:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Sua Google API Key não foi configurada. Insira sua chave no menu lateral para acessar o Zenith.",
             )
 
