@@ -177,9 +177,9 @@ async def receive_feedback(
     
     # Email sending logic using SMTP
     try:
-        smtp_user = config.SMTP_USER.strip('\"\'') if config.SMTP_USER else None
-        smtp_password = config.SMTP_PASSWORD.get_secret_value().strip('\"\'') if config.SMTP_PASSWORD else None
-        smtp_server = config.SMTP_SERVER.strip('\"\'') if config.SMTP_SERVER else "smtp.office365.com"
+        smtp_user = config.SMTP_USER.strip('\"\' ') if config.SMTP_USER else None
+        smtp_password = config.SMTP_PASSWORD.get_secret_value().strip('\"\' ') if config.SMTP_PASSWORD else None
+        smtp_server = config.SMTP_SERVER.strip('\"\' ') if config.SMTP_SERVER else "smtp.office365.com"
         smtp_port = config.SMTP_PORT
         
         # Prepare the email container
@@ -190,7 +190,7 @@ async def receive_feedback(
         
         if smtp_user and smtp_password:
             def send_email_sync():
-                with smtplib.SMTP(smtp_server, smtp_port) as server:
+                with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as server:
                     server.starttls()
                     server.login(smtp_user, smtp_password)
                     server.send_message(msg)
@@ -207,6 +207,12 @@ async def receive_feedback(
             logger.info(f"TARGET_EMAIL: {TARGET_EMAIL}")
             logger.info(f"--- END PAYLOAD ---")
             
+    except smtplib.SMTPAuthenticationError as auth_err:
+        logger.error(f"Authentication failed: {auth_err}")
+        raise HTTPException(
+            status_code=500,
+            detail="Erro de autenticação no servidor de email. Contate o administrador."
+        )
     except Exception as e:
         logger.error(f"Failed to send feedback email: {e}")
         # Raise an exception so that the client knows the feedback failed.
