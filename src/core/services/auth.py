@@ -119,3 +119,47 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+    def register_user(self, email: str, password: str) -> Dict[str, Any]:
+        """
+        Registers a new user via Supabase.
+
+        Args:
+            email (str): The email address for the new user.
+            password (str): The chosen password for the user.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the session details.
+
+        Raises:
+            HTTPException: If registration fails.
+        """
+        try:
+            response = self.client.auth.sign_up({"email": email, "password": password})
+            
+            # Note: Depending on Supabase configuration, users might need email confirmation.
+            # If auto-confirm is enabled and email works without verification, a session will be returned.
+            # If a session isn't returned, we notify the user.
+            
+            # Se for retornar a sessão diretamente para auto-login:
+            if getattr(response, 'session', None):
+                return {
+                    "access_token": response.session.access_token,
+                    "token_type": response.session.token_type,
+                    "user": getattr(response, 'user', None),
+                    "message": "Conta criada e autenticada com sucesso."
+                }
+            else:
+                return {
+                    "access_token": "",
+                    "token_type": "Bearer",
+                    "user": getattr(response, 'user', None),
+                    "message": "Conta criada com sucesso. Verifique seu email para confirmar o acesso."
+                }
+
+        except Exception as e:
+            logger.error(f"Registration Failure for '{email}': {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Falha ao criar conta. Talvez o email já esteja em uso ou a senha é muito fraca.",
+            )
+

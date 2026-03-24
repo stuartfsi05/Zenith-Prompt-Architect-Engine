@@ -75,6 +75,34 @@ async def login_for_access_token(
     )
 
 
+@router.post("/register", response_model=TokenResponse)
+async def register_new_user(
+    form_data: RegisterRequest, auth_service: AuthService = Depends(get_auth_service)
+) -> TokenResponse:
+    """
+    Creates a new user account in Supabase using email and password.
+    
+    Returns an access token if no email confirmation is mandated by the Supabase project configuration.
+    """
+    logger.info(f"Identity Provisioning: Creating account for user {form_data.email}")
+    session_data = auth_service.register_user(form_data.email, form_data.password)
+
+    user_obj = session_data.get("user")
+    user_info = None
+    if user_obj:
+        user_info = {
+            "id": user_obj.id,
+            "email": user_obj.email,
+            "role": user_obj.role,
+        }
+
+    return TokenResponse(
+        access_token=session_data["access_token"],
+        token_type=session_data["token_type"],
+        user_info=user_info,
+    )
+
+
 @router.post("/chat")
 async def chat_endpoint(
     request: ChatRequest,
@@ -160,11 +188,15 @@ async def receive_feedback(
         msg['To'] = TARGET_EMAIL
         
         if smtp_user and smtp_password:
-            # Connect and send
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.send_message(msg)
+            def send_email_sync():
+                with smtplib.SMTP(smtp_server, smtp_port) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_password)
+                    server.send_message(msg)
+
+            # Block in a separate thread to prevent stalling the ASGI event loop
+            import asyncio
+            await asyncio.to_thread(send_email_sync)
             logger.info("Feedback successfully sent to the target email via SMTP.")
         else:
             logger.warning("SMTP credentials are not configured properly. Falling back to log simulation.")
@@ -176,8 +208,11 @@ async def receive_feedback(
             
     except Exception as e:
         logger.error(f"Failed to send feedback email: {e}")
-        # We don't want to expose email failure to the end user if we can avoid it.
-        # But logging it is essential for the admin.
+        # Raise an exception so that the client knows the feedback failed.
+        raise HTTPException(
+            status_code=500,
+            detail="Erro interno ao enviar o feedback. Por favor, tente novamente mais tarde."
+        )
 
     return {"status": "success", "message": "Feedback transmitido com sucesso (Zenith Neural Node)."}
 
