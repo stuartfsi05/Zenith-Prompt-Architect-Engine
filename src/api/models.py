@@ -29,3 +29,7 @@ class TokenResponse(BaseModel):
 
 class FeedbackRequest(BaseModel):
     message: str = Field(..., description="The feedback content")
+
+class RegisterRequest(BaseModel):
+    email: str = Field(..., description="New user email")
+    password: str = Field(..., description="New user password (should be strong)")
