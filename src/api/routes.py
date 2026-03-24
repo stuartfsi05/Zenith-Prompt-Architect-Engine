@@ -18,6 +18,7 @@ from src.api.models import (
     LoginRequest,
     TokenResponse,
     FeedbackRequest,
+    RegisterRequest,
 )
 from src.core.agent import ZenithAgent
 from src.core.services.auth import AuthService
