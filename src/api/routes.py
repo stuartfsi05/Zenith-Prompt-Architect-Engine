@@ -1,8 +1,7 @@
 import json
 import logging
 import os
-import smtplib
-from email.mime.text import MIMEText
+import httpx
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -166,60 +165,54 @@ async def receive_feedback(
 ) -> dict:
     """
     Secure feedback collection endpoint.
-    Transfers user sentiment reports to the developer's protected account.
-    
-    The destination email is intentionally hidden from the frontend for privacy reasons.
+    Routes feedback through a Supabase Edge Function to bypass Render's SMTP restrictions.
+    Feedback is stored in the Supabase database and optionally emailed to the developer.
     """
     logger.info(f"Identity Sentiment: Feedback received from {user.email}")
-    
-    # Destination email (Server-side only)
-    TARGET_EMAIL = "stuart_fsi05@hotmail.com"
-    
-    # Email sending logic using SMTP
-    try:
-        smtp_user = config.SMTP_USER.strip('\"\' ') if config.SMTP_USER else None
-        smtp_password = config.SMTP_PASSWORD.get_secret_value().strip('\"\' ') if config.SMTP_PASSWORD else None
-        smtp_server = config.SMTP_SERVER.strip('\"\' ') if config.SMTP_SERVER else "smtp.office365.com"
-        smtp_port = config.SMTP_PORT
-        
-        # Prepare the email container
-        msg = MIMEText(f"Feedback from User: {user.email}\n\nContent:\n{request.message}")
-        msg['Subject'] = 'Novo Feedback - Zenith Interface'
-        msg['From'] = smtp_user if smtp_user else TARGET_EMAIL
-        msg['To'] = TARGET_EMAIL
-        
-        if smtp_user and smtp_password:
-            def send_email_sync():
-                with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as server:
-                    server.starttls()
-                    server.login(smtp_user, smtp_password)
-                    server.send_message(msg)
 
-            # Block in a separate thread to prevent stalling the ASGI event loop
-            import asyncio
-            await asyncio.to_thread(send_email_sync)
-            logger.info("Feedback successfully sent to the target email via SMTP.")
-        else:
-            logger.warning("SMTP credentials are not configured properly. Falling back to log simulation.")
-            logger.info(f"--- FEEDBACK PAYLOAD SIMULATION ---")
-            logger.info(f"FROM: {user.email}")
-            logger.info(f"CONTENT: {request.message}")
-            logger.info(f"TARGET_EMAIL: {TARGET_EMAIL}")
-            logger.info(f"--- END PAYLOAD ---")
-            
-    except smtplib.SMTPAuthenticationError as auth_err:
-        logger.error(f"Authentication failed: {auth_err}")
-        raise HTTPException(
-            status_code=500,
-            detail="Erro de autenticação no servidor de email. Contate o administrador."
-        )
+    try:
+        supabase_url = config.SUPABASE_URL
+        supabase_key = config.SUPABASE_KEY.get_secret_value() if config.SUPABASE_KEY else None
+
+        if not supabase_url or not supabase_key:
+            logger.error("Supabase credentials not configured. Cannot relay feedback.")
+            raise HTTPException(
+                status_code=500,
+                detail="Configuração do serviço de feedback ausente."
+            )
+
+        edge_function_url = f"{supabase_url}/functions/v1/send-feedback"
+
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.post(
+                edge_function_url,
+                json={
+                    "user_email": user.email,
+                    "message": request.message,
+                },
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {supabase_key}",
+                },
+            )
+
+        if response.status_code != 200:
+            logger.error(f"Edge Function returned {response.status_code}: {response.text}")
+            raise HTTPException(
+                status_code=500,
+                detail="Erro ao processar o feedback. Tente novamente mais tarde."
+            )
+
+        result = response.json()
+        logger.info(f"Feedback relay result: stored={result.get('stored_in_db')}, emailed={result.get('email_sent')}")
+
+        return {"status": "success", "message": "Feedback transmitido com sucesso (Zenith Neural Node)."}
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to send feedback email: {e}")
-        # Raise an exception so that the client knows the feedback failed.
+        logger.error(f"Failed to relay feedback: {e}")
         raise HTTPException(
             status_code=500,
             detail="Erro interno ao enviar o feedback. Por favor, tente novamente mais tarde."
         )
-
-    return {"status": "success", "message": "Feedback transmitido com sucesso (Zenith Neural Node)."}
-

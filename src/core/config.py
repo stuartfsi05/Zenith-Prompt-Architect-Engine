@@ -59,7 +59,7 @@ class Config(BaseSettings):
     SUPABASE_KEY: Optional[SecretStr] = None
 
     # E-mail (Feedback)
-    SMTP_SERVER: Optional[str] = "smtp.office365.com"
+    SMTP_SERVER: Optional[str] = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[SecretStr] = None
