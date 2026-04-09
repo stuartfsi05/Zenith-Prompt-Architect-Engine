@@ -1,8 +1,8 @@
 import asyncio
 import logging
-from typing import Any, Optional
 
 logger = logging.getLogger("ContextBuilder")
+
 
 class ContextBuilder:
     """
@@ -23,7 +23,9 @@ class ContextBuilder:
             f"Apenas após o fechamento da tag </thinking>, forneça a resposta final ao usuário.\n"
         )
 
-    async def resolve_rag_context(self, knowledge_task: asyncio.Task, complexity: str) -> str:
+    async def resolve_rag_context(
+        self, knowledge_task: asyncio.Task, complexity: str
+    ) -> str:
         """
         Resolves the pending knowledge retrieval task and formats the context based on complexity.
         """
@@ -32,7 +34,9 @@ class ContextBuilder:
             try:
                 content = await knowledge_task
                 if content:
-                    rag_context = f"--- [RELEVANT CONTEXT (Hybrid Search)] ---\n{content}\n\n"
+                    rag_context = (
+                        f"--- [RELEVANT CONTEXT (Hybrid Search)] ---\n{content}\n\n"
+                    )
             except Exception as e:
                 logger.error(f"Knowledge Retrieval failed: {e}")
         else:
@@ -44,11 +48,11 @@ class ContextBuilder:
         return rag_context
 
     def assemble_prompt(
-        self, 
-        system_injection: str, 
-        memory_context: str, 
-        rag_context: str, 
-        user_input: str
+        self,
+        system_injection: str,
+        memory_context: str,
+        rag_context: str,
+        user_input: str,
     ) -> str:
         """
         Combines all context parts into the final prompt string.

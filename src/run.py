@@ -1,6 +1,7 @@
-import uvicorn
-import sys
 import os
+import sys
+
+import uvicorn
 
 # Ensure project root is in pythonpath
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

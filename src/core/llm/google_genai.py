@@ -1,10 +1,9 @@
 from typing import Any, AsyncGenerator, Dict, List
-import asyncio
 
 from google import genai
 from google.genai import types
 
-from src.core.llm.provider import LLMProvider, ChatSession
+from src.core.llm.provider import ChatSession, LLMProvider
 from src.utils.logger import setup_logger
 
 logger = setup_logger("GoogleGenAIProvider")
@@ -15,6 +14,7 @@ class GoogleChatSession(ChatSession):
     Wrapper for Google GenAI AsyncChat session.
     Adapts Google's specific history management to the generic ChatSession interface.
     """
+
     def __init__(self, raw_session: Any):
         self._session = raw_session
 
@@ -81,7 +81,7 @@ class GoogleGenAIProvider(LLMProvider):
                 formatted_history.append(
                     types.Content(
                         role=item["role"],
-                        parts=[types.Part.from_text(text=p) for p in item["parts"]]
+                        parts=[types.Part.from_text(text=p) for p in item["parts"]],
                     )
                 )
 
@@ -91,7 +91,7 @@ class GoogleGenAIProvider(LLMProvider):
             config=types.GenerateContentConfig(
                 system_instruction=self.system_instruction,
                 temperature=self.default_config["temperature"],
-            )
+            ),
         )
         return GoogleChatSession(raw_chat)
 
@@ -103,22 +103,19 @@ class GoogleGenAIProvider(LLMProvider):
         """
         if not self.client:
             raise RuntimeError("Client not configured.")
-        
+
         # Mapping legacy generation_config to config
         config = kwargs.pop("config", None)
         legacy_config = kwargs.pop("generation_config", None)
-        
+
         final_config = config
         if legacy_config and not final_config:
             # Simple mapping or pass as is if dict
             final_config = legacy_config
-            
+
         # Merge defaults if needed, but for now specific overrides win
         response = await self.client.aio.models.generate_content(
-            model=self.model_name,
-            contents=prompt,
-            config=final_config,
-            **kwargs
+            model=self.model_name, contents=prompt, config=final_config, **kwargs
         )
         return response.text
 
@@ -129,10 +126,10 @@ class GoogleGenAIProvider(LLMProvider):
             raise ValueError("Session cannot be None.")
 
         if isinstance(session, GoogleChatSession):
-             raw_session = session._session
+            raw_session = session._session
         else:
-             # Fallback or error
-             raw_session = session
+            # Fallback or error
+            raw_session = session
 
         # session is now an AsyncChat object from client.aio.chats.create()
         if stream:
@@ -142,7 +139,7 @@ class GoogleGenAIProvider(LLMProvider):
                 if chunk.text:
                     yield chunk.text
                 if chunk.usage_metadata:
-                     yield {"usage_metadata": chunk.usage_metadata}
+                    yield {"usage_metadata": chunk.usage_metadata}
         else:
             response = await raw_session.send_message(message)
             yield response.text

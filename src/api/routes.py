@@ -1,25 +1,30 @@
 import json
 import logging
-import os
-import httpx
 from typing import AsyncGenerator
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from gotrue.types import User
 
-from src.api.dependencies import get_agent, get_auth_service, get_current_user, get_config, get_db
-from src.core.config import Config
+from src.api.dependencies import (
+    get_agent,
+    get_auth_service,
+    get_config,
+    get_current_user,
+    get_db,
+)
 from src.api.models import (
     ChatRequest,
     ChatResponse,
+    FeedbackRequest,
     HealthResponse,
     LoginRequest,
-    TokenResponse,
-    FeedbackRequest,
     RegisterRequest,
+    TokenResponse,
 )
 from src.core.agent import ZenithAgent
+from src.core.config import Config
 from src.core.services.auth import AuthService
 
 # Router configuration for the Zenith Neural Engine API
@@ -81,7 +86,7 @@ async def register_new_user(
 ) -> TokenResponse:
     """
     Creates a new user account in Supabase using email and password.
-    
+
     Returns an access token if no email confirmation is mandated by the Supabase project configuration.
     """
     logger.info(f"Identity Provisioning: Creating account for user {form_data.email}")
@@ -141,7 +146,10 @@ async def chat_endpoint(
 
         except Exception as e:
             logger.exception(f"Neural Stream Interruption: {e}")
-            error_payload = {"error": "Processing unit encountered an internal failure.", "detail": str(e)}
+            error_payload = {
+                "error": "Processing unit encountered an internal failure.",
+                "detail": str(e),
+            }
             yield json.dumps(error_payload) + "\n"
 
     return StreamingResponse(event_generator(), media_type="application/x-ndjson")
@@ -149,8 +157,7 @@ async def chat_endpoint(
 
 @router.get("/sessions")
 async def get_recent_sessions(
-    user: User = Depends(get_current_user),
-    db = Depends(get_db)
+    user: User = Depends(get_current_user), db=Depends(get_db)
 ) -> dict:
     """Retrieves the recent chat sessions for the authenticated user."""
     sessions = db.get_sessions(user.id, limit=15)
@@ -172,13 +179,14 @@ async def receive_feedback(
 
     try:
         supabase_url = config.SUPABASE_URL
-        supabase_key = config.SUPABASE_KEY.get_secret_value() if config.SUPABASE_KEY else None
+        supabase_key = (
+            config.SUPABASE_KEY.get_secret_value() if config.SUPABASE_KEY else None
+        )
 
         if not supabase_url or not supabase_key:
             logger.error("Supabase credentials not configured. Cannot relay feedback.")
             raise HTTPException(
-                status_code=500,
-                detail="Configuração do serviço de feedback ausente."
+                status_code=500, detail="Configuração do serviço de feedback ausente."
             )
 
         edge_function_url = f"{supabase_url}/functions/v1/send-feedback"
@@ -197,16 +205,23 @@ async def receive_feedback(
             )
 
         if response.status_code != 200:
-            logger.error(f"Edge Function returned {response.status_code}: {response.text}")
+            logger.error(
+                f"Edge Function returned {response.status_code}: {response.text}"
+            )
             raise HTTPException(
                 status_code=500,
-                detail="Erro ao processar o feedback. Tente novamente mais tarde."
+                detail="Erro ao processar o feedback. Tente novamente mais tarde.",
             )
 
         result = response.json()
-        logger.info(f"Feedback relay result: stored={result.get('stored_in_db')}, emailed={result.get('email_sent')}")
+        logger.info(
+            f"Feedback relay result: stored={result.get('stored_in_db')}, emailed={result.get('email_sent')}"
+        )
 
-        return {"status": "success", "message": "Feedback transmitido com sucesso (Zenith Neural Node)."}
+        return {
+            "status": "success",
+            "message": "Feedback transmitido com sucesso (Zenith Neural Node).",
+        }
 
     except HTTPException:
         raise
@@ -214,5 +229,5 @@ async def receive_feedback(
         logger.error(f"Failed to relay feedback: {e}")
         raise HTTPException(
             status_code=500,
-            detail="Erro interno ao enviar o feedback. Por favor, tente novamente mais tarde."
+            detail="Erro interno ao enviar o feedback. Por favor, tente novamente mais tarde.",
         )

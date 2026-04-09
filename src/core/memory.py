@@ -27,7 +27,9 @@ class StrategicMemory:
 
         self.load_memory()
 
-        self.client = genai.Client(api_key=self.config.GOOGLE_API_KEY.get_secret_value())
+        self.client = genai.Client(
+            api_key=self.config.GOOGLE_API_KEY.get_secret_value()
+        )
         self.system_instruction = (
             "You are a Background Memory Processor. "
             "Your job is to compress information and extract facts."
@@ -106,7 +108,7 @@ class StrategicMemory:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=self.system_instruction
-                )
+                ),
             )
             if response.text:
                 self.master_summary = response.text
@@ -136,10 +138,10 @@ class StrategicMemory:
                 f"Pruning History (Current: {history_len}). "
                 f"Archiving {len(items_to_prune)} items."
             )
-            
+
             # Prune first (setter), then consolidate async
             chat_session.history = current_history[prune_count:]
-            
+
             asyncio.create_task(self.consolidate_memory_async(items_to_prune))
 
     async def extract_entities_async(self, user_input: str, model_output: str):
@@ -175,8 +177,8 @@ class StrategicMemory:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=self.system_instruction,
-                    response_mime_type="application/json"
-                )
+                    response_mime_type="application/json",
+                ),
             )
 
             updated_profile = json.loads(response.text)

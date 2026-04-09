@@ -1,9 +1,10 @@
 import logging
-from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any, Dict
+
 from src.core.database import PersistenceLayer
 
 logger = logging.getLogger("UsageService")
+
 
 class UsageService:
     """
@@ -14,11 +15,11 @@ class UsageService:
         self.db = db
 
     def log_tokens(
-        self, 
-        user_id: str, 
-        session_id: str, 
-        model_name: str, 
-        usage_metadata: Dict[str, Any]
+        self,
+        user_id: str,
+        session_id: str,
+        model_name: str,
+        usage_metadata: Dict[str, Any],
     ) -> None:
         """
         Parses usage metadata and logs it to persistence layer.
@@ -46,7 +47,7 @@ class UsageService:
                 model=model_name,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
-                total_tokens=total_tokens
+                total_tokens=total_tokens,
             )
             logger.debug(f"Logged {total_tokens} tokens for session {session_id}")
 

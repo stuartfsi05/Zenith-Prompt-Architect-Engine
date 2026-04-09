@@ -1,9 +1,7 @@
 import asyncio
 import io
-import logging
 import sys
 import warnings
-from typing import NoReturn
 
 from rich.console import Console
 from rich.live import Live
@@ -176,4 +174,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
-

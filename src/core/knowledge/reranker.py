@@ -1,7 +1,8 @@
 import json
 from typing import List
-from src.core.knowledge.retriever import Document
+
 from src.core.config import Config
+from src.core.knowledge.retriever import Document
 from src.core.llm.google_genai import GoogleGenAIProvider
 from src.utils.logger import setup_logger
 

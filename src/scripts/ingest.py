@@ -66,7 +66,8 @@ def run_ingestion() -> bool:
     logger.info("Generating embeddings and creating FAISS Vector Store...")
     try:
         embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004", google_api_key=config.GOOGLE_API_KEY.get_secret_value()
+            model="models/text-embedding-004",
+            google_api_key=config.GOOGLE_API_KEY.get_secret_value(),
         )
 
         # Initialize FAISS from documents

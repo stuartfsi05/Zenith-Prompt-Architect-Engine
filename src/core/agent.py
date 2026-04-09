@@ -1,6 +1,5 @@
 import asyncio
-import logging
-from typing import AsyncGenerator, Optional, Dict, Any
+from typing import Any, AsyncGenerator, Dict, Optional
 
 from src.core.analyzer import StrategicAnalyzer
 from src.core.config import Config
@@ -78,11 +77,15 @@ class ZenithAgent:
         Prepares the agent for a new or existing chat session.
         """
         self.current_session_id = session_id
-        formatted_history = self.history_service.get_formatted_history(session_id, user_id)
+        formatted_history = self.history_service.get_formatted_history(
+            session_id, user_id
+        )
 
         # Initialize isolated chat session
         self.main_session = self.llm.start_chat(history=formatted_history)
-        logger.info(f"Chat session '{session_id}' started. History restored: {len(formatted_history)} items.")
+        logger.info(
+            f"Chat session '{session_id}' started. History restored: {len(formatted_history)} items."
+        )
 
     async def run_analysis_async(
         self, user_input: str, user_id: str, session_id: str
@@ -103,8 +106,12 @@ class ZenithAgent:
             return
 
         # 3. Concurrent Retrieval & Analysis
-        analyzer_task = asyncio.create_task(self.analyzer.analyze_intent_async(user_input))
-        knowledge_task = asyncio.create_task(self.knowledge_base.retrieve_async(user_input))
+        analyzer_task = asyncio.create_task(
+            self.analyzer.analyze_intent_async(user_input)
+        )
+        knowledge_task = asyncio.create_task(
+            self.knowledge_base.retrieve_async(user_input)
+        )
 
         try:
             analysis_result = await analyzer_task
@@ -119,7 +126,9 @@ class ZenithAgent:
         selected_persona = Personas.get_persona(nature)
         system_injection = self.context_builder.build_system_injection(selected_persona)
 
-        rag_context = await self.context_builder.resolve_rag_context(knowledge_task, complexity)
+        rag_context = await self.context_builder.resolve_rag_context(
+            knowledge_task, complexity
+        )
         memory_context = self.memory.get_context_injection()
 
         final_prompt = self.context_builder.assemble_prompt(
@@ -142,7 +151,9 @@ class ZenithAgent:
                     full_response_text += chunk
 
             # Background task for memory consolidation
-            asyncio.create_task(self.memory.extract_entities_async(user_input, full_response_text))
+            asyncio.create_task(
+                self.memory.extract_entities_async(user_input, full_response_text)
+            )
 
         except Exception as e:
             logger.critical(f"Agent Pipeline Failure: {e}")
@@ -160,7 +171,12 @@ class ZenithAgent:
                 )
 
     async def _generate_with_retry(
-        self, prompt: str, original_input: str, user_id: str, session_id: str, metadata: Dict[str, Any]
+        self,
+        prompt: str,
+        original_input: str,
+        user_id: str,
+        session_id: str,
+        metadata: Dict[str, Any],
     ) -> AsyncGenerator[str, None]:
         """
         Executes generation with feedback-driven refinement (Self-Correction loop).
@@ -203,18 +219,25 @@ class ZenithAgent:
             # Circuit Breaker: We buffer the retry to ensure high quality before showing user
             retry_buffer = ""
             try:
-                retry_stream = self.llm.send_message_async(self.main_session, refinement_prompt, stream=True)
+                retry_stream = self.llm.send_message_async(
+                    self.main_session, refinement_prompt, stream=True
+                )
                 async for chunk in retry_stream:
                     if isinstance(chunk, dict) and "usage_metadata" in chunk:
                         self.usage_service.log_tokens(
-                            user_id, session_id, self.config.MODEL_NAME, chunk["usage_metadata"]
+                            user_id,
+                            session_id,
+                            self.config.MODEL_NAME,
+                            chunk["usage_metadata"],
                         )
                         continue
                     if isinstance(chunk, str):
                         retry_buffer += chunk
 
                 # Validate the refinement
-                retry_eval = await self.judge.evaluate_async(original_input, retry_buffer)
+                retry_eval = await self.judge.evaluate_async(
+                    original_input, retry_buffer
+                )
                 final_score = retry_eval.get("score", 0)
 
                 if final_score >= quality_bar:
@@ -225,7 +248,9 @@ class ZenithAgent:
                         f"- **Status**: Aprovado\n"
                     )
                 else:
-                    logger.warning(f"Circuit Breaker: Refinement failed (Score: {final_score})")
+                    logger.warning(
+                        f"Circuit Breaker: Refinement failed (Score: {final_score})"
+                    )
                     yield (
                         "\n\n**⛔ Circuit Breaker Activated**\n"
                         "We were unable to generate a response that meets our quality standards. "

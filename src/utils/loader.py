@@ -30,7 +30,6 @@ def load_system_prompt(filepath: str) -> str:
         except Exception as e:
             logger.error(f"Error reading primary prompt file: {e}")
             # Proceed to fallback if read fails
-            pass
     else:
         logger.warning(f"Primary system prompt not found at: {primary_path}")
 

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
@@ -63,7 +63,9 @@ def get_db(config: Config = Depends(get_config)) -> SupabaseRepository:
 
 def get_llm(
     config: Config = Depends(get_config),
-    api_key: Optional[str] = Security(APIKeyHeader(name="x-google-api-key", auto_error=False)),
+    api_key: Optional[str] = Security(
+        APIKeyHeader(name="x-google-api-key", auto_error=False)
+    ),
 ) -> GoogleGenAIProvider:
     """
     Provides a transient LLM Provider instance for the current request.
@@ -255,5 +257,3 @@ async def get_current_user(
         HTTPException: For invalid or expired tokens.
     """
     return auth_service.verify_token(credentials.credentials)
-
-

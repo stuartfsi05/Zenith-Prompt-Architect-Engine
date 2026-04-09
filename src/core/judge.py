@@ -17,7 +17,9 @@ class TheJudge:
         self.config = config
         self.logger = logging.getLogger("ZenithJudge")
 
-        self.client = genai.Client(api_key=self.config.GOOGLE_API_KEY.get_secret_value())
+        self.client = genai.Client(
+            api_key=self.config.GOOGLE_API_KEY.get_secret_value()
+        )
         self.system_instruction = self._get_system_prompt()
 
     def _get_system_prompt(self) -> str:

@@ -43,11 +43,16 @@ class AuthService:
         if not self._client:
             try:
                 self._client = create_client(
-                    self.config.SUPABASE_URL, self.config.SUPABASE_KEY.get_secret_value()
+                    self.config.SUPABASE_URL,
+                    self.config.SUPABASE_KEY.get_secret_value(),
                 )
             except Exception as e:
-                logger.critical(f"Auth Service Failure: Client initialization crashed: {e}")
-                raise RuntimeError("Failed to connect to Authorization Provider.") from e
+                logger.critical(
+                    f"Auth Service Failure: Client initialization crashed: {e}"
+                )
+                raise RuntimeError(
+                    "Failed to connect to Authorization Provider."
+                ) from e
         return self._client
 
     def verify_token(self, token: str) -> Any:
@@ -67,7 +72,9 @@ class AuthService:
             user_response = self.client.auth.get_user(token)
 
             if not user_response or not user_response.user:
-                logger.warning("Access Denied: Token verification returned no valid user.")
+                logger.warning(
+                    "Access Denied: Token verification returned no valid user."
+                )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid or expired session.",
@@ -102,7 +109,9 @@ class AuthService:
             HTTPException: If the credentials are incorrect or the account is locked.
         """
         try:
-            response = self.client.auth.sign_in_with_password({"email": email, "password": password})
+            response = self.client.auth.sign_in_with_password(
+                {"email": email, "password": password}
+            )
             if not response.session:
                 raise ValueError("Auth Provider returned a null session.")
 
@@ -135,25 +144,25 @@ class AuthService:
         """
         try:
             response = self.client.auth.sign_up({"email": email, "password": password})
-            
+
             # Note: Depending on Supabase configuration, users might need email confirmation.
             # If auto-confirm is enabled and email works without verification, a session will be returned.
             # If a session isn't returned, we notify the user.
-            
+
             # Se for retornar a sessão diretamente para auto-login:
-            if getattr(response, 'session', None):
+            if getattr(response, "session", None):
                 return {
                     "access_token": response.session.access_token,
                     "token_type": response.session.token_type,
-                    "user": getattr(response, 'user', None),
-                    "message": "Conta criada e autenticada com sucesso."
+                    "user": getattr(response, "user", None),
+                    "message": "Conta criada e autenticada com sucesso.",
                 }
             else:
                 return {
                     "access_token": "",
                     "token_type": "Bearer",
-                    "user": getattr(response, 'user', None),
-                    "message": "Conta criada com sucesso. Verifique seu email para confirmar o acesso."
+                    "user": getattr(response, "user", None),
+                    "message": "Conta criada com sucesso. Verifique seu email para confirmar o acesso.",
                 }
 
         except Exception as e:
@@ -162,4 +171,3 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Falha ao criar conta. Talvez o email já esteja em uso ou a senha é muito fraca.",
             )
-

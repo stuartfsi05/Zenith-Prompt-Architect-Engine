@@ -1,6 +1,5 @@
 import asyncio
 import os
-import sys
 
 from rich.console import Console
 
@@ -55,18 +54,29 @@ class BootstrapService:
 
         if not os.path.exists(config.SYSTEM_PROMPT_PATH):
             logger.info(f"System prompt not found. Attempting to create from sample...")
-            
+
             if os.path.exists(config.SAMPLE_SYSTEM_PROMPT_PATH):
                 import shutil
+
                 try:
-                     shutil.copy(config.SAMPLE_SYSTEM_PROMPT_PATH, config.SYSTEM_PROMPT_PATH)
-                     console.print(f"[bold green]✅ System Prompt created from sample: {config.SYSTEM_PROMPT_PATH}[/bold green]")
+                    shutil.copy(
+                        config.SAMPLE_SYSTEM_PROMPT_PATH, config.SYSTEM_PROMPT_PATH
+                    )
+                    console.print(
+                        f"[bold green]✅ System Prompt created from sample: {config.SYSTEM_PROMPT_PATH}[/bold green]"
+                    )
                 except Exception as e:
-                     logger.error(f"Failed to copy sample prompt: {e}")
-                     console.print(f"[bold red]❌ Failed to create system prompt: {e}[/bold red]")
+                    logger.error(f"Failed to copy sample prompt: {e}")
+                    console.print(
+                        f"[bold red]❌ Failed to create system prompt: {e}[/bold red]"
+                    )
             else:
-                logger.warning(f"Sample prompt not found at {config.SAMPLE_SYSTEM_PROMPT_PATH}")
-                console.print(f"[bold yellow]⚠️ System Prompt and Sample missing. Agent requires instructions.[/bold yellow]")
+                logger.warning(
+                    f"Sample prompt not found at {config.SAMPLE_SYSTEM_PROMPT_PATH}"
+                )
+                console.print(
+                    f"[bold yellow]⚠️ System Prompt and Sample missing. Agent requires instructions.[/bold yellow]"
+                )
 
     @staticmethod
     async def _ensure_knowledge_consistency(config: Config):
@@ -104,8 +114,12 @@ class BootstrapService:
                     "[bold green]✅ Memory updated successfully.[/bold green]"
                 )
             else:
-                console.print("[bold yellow]⚠️ Atenção: Zenith operando sem memória atualizada devido a erro na API.[/bold yellow]")
-                logger.warning("Graceful Degradation: Knowledge Ingestion failed. System starting with stale/empty memory.")
+                console.print(
+                    "[bold yellow]⚠️ Atenção: Zenith operando sem memória atualizada devido a erro na API.[/bold yellow]"
+                )
+                logger.warning(
+                    "Graceful Degradation: Knowledge Ingestion failed. System starting with stale/empty memory."
+                )
                 # We do NOT raise RuntimeError here. We allow the system to start.
                 return
         else:
