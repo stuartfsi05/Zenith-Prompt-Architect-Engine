@@ -30,15 +30,18 @@ class UsageService:
         try:
             # Handle google.genai.types.UsageMetadata object or dict
             if hasattr(usage_metadata, "prompt_token_count"):
-                input_tokens = usage_metadata.prompt_token_count
-                output_tokens = usage_metadata.candidates_token_count
-                total_tokens = usage_metadata.total_token_count
+                input_tokens = usage_metadata.prompt_token_count or 0
+                output_tokens = usage_metadata.candidates_token_count or 0
+                total_tokens = usage_metadata.total_token_count or 0
             elif isinstance(usage_metadata, dict):
-                input_tokens = usage_metadata.get("prompt_token_count", 0)
-                output_tokens = usage_metadata.get("candidates_token_count", 0)
-                total_tokens = usage_metadata.get("total_token_count", 0)
+                input_tokens = usage_metadata.get("prompt_token_count") or 0
+                output_tokens = usage_metadata.get("candidates_token_count") or 0
+                total_tokens = usage_metadata.get("total_token_count") or 0
             else:
                 logger.warning(f"Unknown usage metadata format: {type(usage_metadata)}")
+                return
+
+            if total_tokens == 0:
                 return
 
             self.db.log_usage(

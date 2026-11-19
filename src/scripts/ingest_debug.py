@@ -23,7 +23,7 @@ except Exception as e:
 def run_ingestion() -> bool:
     print("DEBUG: Loading Config...")
     try:
-        config = Config.load()
+        config = Config()
         print("DEBUG: Config loaded.")
     except Exception as e:
         print(f"DEBUG: Config load failed: {e}")
@@ -67,7 +67,8 @@ def run_ingestion() -> bool:
     print("DEBUG: Generating Embeddings...")
     try:
         embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001", google_api_key=config.GOOGLE_API_KEY
+            model=config.EMBEDDING_MODEL,
+            google_api_key=config.GOOGLE_API_KEY.get_secret_value(),
         )
         print("DEBUG: Embeddings initialized.")
 

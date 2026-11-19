@@ -16,9 +16,10 @@ class StrategicAnalyzer:
 
         # Initialize LLM Provider
         self.llm = GoogleGenAIProvider(
-            model_name=self.config.MODEL_NAME,
+            model_name=self.config.AUX_MODEL_NAME,
             system_instruction=self._get_system_prompt(),
-            temperature=0.1,  # Default, overriden in methods
+            temperature=0.1,
+            thinking_level=self.config.AUX_THINKING_LEVEL,
         )
         self.llm.configure(self.config.GOOGLE_API_KEY.get_secret_value())
 
@@ -73,26 +74,27 @@ class StrategicAnalyzer:
         self.logger.info("Executing Strategic Analysis...")
 
         max_retries = 2
-        temperatures = [0.1, 0.4, 0.7]
 
         for attempt in range(max_retries + 1):
-            current_temp = temperatures[attempt]
-
             try:
                 response_text = await self.llm.generate_content_async(
                     f"INPUT DO USUÁRIO: {user_input}",
-                    config={
-                        "temperature": current_temp,
-                        "response_mime_type": "application/json",
-                    },
+                    config={"response_mime_type": "application/json"},
                 )
 
                 if not response_text:
                     raise ValueError("Empty response from Analyzer")
 
-                analysis_json = json.loads(response_text)
+                cleaned_text = (
+                    response_text.strip()
+                    .removeprefix("```json")
+                    .removeprefix("```")
+                    .removesuffix("```")
+                    .strip()
+                )
+                analysis_json = json.loads(cleaned_text)
                 self.logger.info(
-                    f"Analysis successful (Temp: {current_temp}): "
+                    f"Analysis successful (Attempt {attempt + 1}): "
                     f"{analysis_json.get('natureza')}"
                 )
                 return analysis_json
@@ -100,7 +102,7 @@ class StrategicAnalyzer:
             except (json.JSONDecodeError, ValueError) as e:
                 self.logger.warning(
                     f"Analysis Failed (Attempt {attempt + 1}/{max_retries + 1}) "
-                    f"| Temp: {current_temp} | Error: {e}"
+                    f"| Error: {e}"
                 )
             except Exception as e:
                 self.logger.critical(f"Critical Analyzer Error: {e}")

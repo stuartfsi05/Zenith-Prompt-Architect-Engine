@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,11 +20,16 @@ class Config(BaseSettings):
         extra="ignore",
         populate_by_name=True,
         frozen=True,
+        str_strip_whitespace=True,
     )
 
     # Core
     GOOGLE_API_KEY: SecretStr
-    MODEL_NAME: str = "gemini-2.5-flash"
+    MODEL_NAME: str = "gemini-3.8-flash"
+    AUX_MODEL_NAME: str = "gemini-3.5-flash-lite"
+    EMBEDDING_MODEL: str = "models/gemini-embedding-2"
+    THINKING_LEVEL: Literal["low", "medium", "high"] = "medium"
+    AUX_THINKING_LEVEL: Literal["minimal", "low", "medium", "high"] = "minimal"
     TEMPERATURE: float = Field(default=0.1, ge=0.0, le=1.0)
 
     # Paths (Dynamically computed defaults)

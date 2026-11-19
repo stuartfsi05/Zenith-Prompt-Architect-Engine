@@ -107,6 +107,7 @@ def get_llm(
             model_name=config.MODEL_NAME,
             temperature=config.TEMPERATURE,
             system_instruction=default_sys_prompt,
+            thinking_level=config.THINKING_LEVEL,
         )
         provider.configure(final_api_key)
         return provider

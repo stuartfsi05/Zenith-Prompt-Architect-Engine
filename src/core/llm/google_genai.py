@@ -1,4 +1,4 @@
-from typing import Any, AsyncGenerator, Dict, List
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from google import genai
 from google.genai import types
@@ -7,6 +7,12 @@ from src.core.llm.provider import ChatSession, LLMProvider
 from src.utils.logger import setup_logger
 
 logger = setup_logger("GoogleGenAIProvider")
+
+
+def is_modern_gemini_model(model_name: str) -> bool:
+    """Returns True for Gemini 3+/4+ models where legacy sampling params are deprecated."""
+    normalized = model_name.removeprefix("models/").lower()
+    return normalized.startswith(("gemini-3", "gemini-4"))
 
 
 class GoogleChatSession(ChatSession):
@@ -47,7 +53,11 @@ class GoogleGenAIProvider(LLMProvider):
     """
 
     def __init__(
-        self, model_name: str, temperature: float = 0.1, system_instruction: str = None
+        self,
+        model_name: str,
+        temperature: float = 0.1,
+        system_instruction: Optional[str] = None,
+        thinking_level: Optional[str] = None,
     ):
         self.model_name = model_name
         self.default_config = {
@@ -57,7 +67,38 @@ class GoogleGenAIProvider(LLMProvider):
             "max_output_tokens": 8192,
         }
         self.system_instruction = system_instruction
+        self.thinking_level = thinking_level
         self.client = None
+
+    def _build_generate_config(
+        self, overrides: Any = None
+    ) -> types.GenerateContentConfig:
+        """Builds a GenerateContentConfig adapted to the target Gemini generation."""
+        if isinstance(overrides, types.GenerateContentConfig):
+            config_dict = overrides.model_dump(exclude_none=True)
+        elif isinstance(overrides, dict):
+            config_dict = dict(overrides)
+        else:
+            config_dict = {}
+
+        if self.system_instruction and "system_instruction" not in config_dict:
+            config_dict["system_instruction"] = self.system_instruction
+
+        if is_modern_gemini_model(self.model_name):
+            for key in ("temperature", "top_p", "top_k", "candidate_count"):
+                config_dict.pop(key, None)
+            if self.thinking_level and "thinking_config" not in config_dict:
+                config_dict["thinking_config"] = types.ThinkingConfig(
+                    thinking_level=self.thinking_level
+                )
+        else:
+            if (
+                "temperature" not in config_dict
+                and self.default_config.get("temperature") is not None
+            ):
+                config_dict["temperature"] = self.default_config["temperature"]
+
+        return types.GenerateContentConfig(**config_dict)
 
     def configure(self, api_key: str):
         try:
@@ -88,10 +129,7 @@ class GoogleGenAIProvider(LLMProvider):
         raw_chat = self.client.aio.chats.create(
             model=self.model_name,
             history=formatted_history,
-            config=types.GenerateContentConfig(
-                system_instruction=self.system_instruction,
-                temperature=self.default_config["temperature"],
-            ),
+            config=self._build_generate_config(),
         )
         return GoogleChatSession(raw_chat)
 
@@ -108,12 +146,9 @@ class GoogleGenAIProvider(LLMProvider):
         config = kwargs.pop("config", None)
         legacy_config = kwargs.pop("generation_config", None)
 
-        final_config = config
-        if legacy_config and not final_config:
-            # Simple mapping or pass as is if dict
-            final_config = legacy_config
+        raw_config = config if config is not None else legacy_config
+        final_config = self._build_generate_config(raw_config)
 
-        # Merge defaults if needed, but for now specific overrides win
         response = await self.client.aio.models.generate_content(
             model=self.model_name, contents=prompt, config=final_config, **kwargs
         )

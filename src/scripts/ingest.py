@@ -1,4 +1,7 @@
 import os
+import re
+import time
+from typing import Optional
 
 from langchain_community.document_loaders import TextLoader
 from langchain_community.vectorstores import FAISS
@@ -9,6 +12,48 @@ from src.core.config import Config
 from src.utils.logger import setup_logger
 
 logger = setup_logger("IngestScript")
+
+EMBEDDING_BATCH_SIZE = 90
+EMBEDDING_BATCH_DELAY_SECONDS = 62
+MAX_BATCH_RETRIES = 3
+
+
+def _extract_retry_delay(error_msg: str, default: float = 65.0) -> float:
+    """Parses the suggested retry delay in seconds from a 429 error message."""
+    match = re.search(r"retry in (\d+(?:\.\d+)?)s", error_msg, re.IGNORECASE)
+    if match:
+        return max(float(match.group(1)) + 2.0, 5.0)
+    return default
+
+
+def _embed_batch_with_retry(
+    vector_store: Optional[FAISS],
+    batch: list,
+    embeddings: GoogleGenerativeAIEmbeddings,
+    batch_idx: int,
+    total_batches: int,
+) -> FAISS:
+    """Embeds a single chunk batch into FAISS, retrying on Free Tier 429 errors."""
+    for attempt in range(MAX_BATCH_RETRIES):
+        try:
+            if vector_store is None:
+                return FAISS.from_documents(documents=batch, embedding=embeddings)
+            vector_store.add_documents(batch)
+            return vector_store
+        except Exception as e:
+            err_str = str(e)
+            is_rate_limit = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str
+            if is_rate_limit and attempt < MAX_BATCH_RETRIES - 1:
+                delay = _extract_retry_delay(err_str)
+                logger.warning(
+                    f"Rate limit on batch {batch_idx}/{total_batches} "
+                    f"(attempt {attempt + 1}/{MAX_BATCH_RETRIES}). "
+                    f"Sleeping {delay:.1f}s..."
+                )
+                time.sleep(delay)
+                continue
+            raise
+    raise RuntimeError(f"Failed to embed batch {batch_idx}/{total_batches}.")
 
 
 def run_ingestion() -> bool:
@@ -62,16 +107,37 @@ def run_ingestion() -> bool:
     chunks = text_splitter.split_documents(documents)
     logger.info(f"Created {len(chunks)} text chunks.")
 
-    # 4. Create Vector Store (FAISS)
+    # 4. Create Vector Store (FAISS) in rate-limited batches
     logger.info("Generating embeddings and creating FAISS Vector Store...")
     try:
         embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
+            model=config.EMBEDDING_MODEL,
             google_api_key=config.GOOGLE_API_KEY.get_secret_value(),
         )
 
-        # Initialize FAISS from documents
-        vector_store = FAISS.from_documents(documents=chunks, embedding=embeddings)
+        batches = [
+            chunks[i : i + EMBEDDING_BATCH_SIZE]
+            for i in range(0, len(chunks), EMBEDDING_BATCH_SIZE)
+        ]
+        vector_store: Optional[FAISS] = None
+
+        for batch_idx, batch in enumerate(batches, start=1):
+            logger.info(
+                f"Embedding batch {batch_idx}/{len(batches)} ({len(batch)} chunks)..."
+            )
+            vector_store = _embed_batch_with_retry(
+                vector_store, batch, embeddings, batch_idx, len(batches)
+            )
+            if batch_idx < len(batches):
+                logger.info(
+                    f"Cooling down {EMBEDDING_BATCH_DELAY_SECONDS}s "
+                    "for Free Tier RPM quota..."
+                )
+                time.sleep(EMBEDDING_BATCH_DELAY_SECONDS)
+
+        if vector_store is None:
+            logger.error("No chunks were embedded into the Vector Store.")
+            return False
 
         # Save locally
         vector_store.save_local(persist_dir)

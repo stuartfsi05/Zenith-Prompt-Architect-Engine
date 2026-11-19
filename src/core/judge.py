@@ -6,6 +6,7 @@ from google import genai
 from google.genai import types
 
 from src.core.config import Config
+from src.core.llm.google_genai import is_modern_gemini_model
 
 
 class TheJudge:
@@ -73,14 +74,21 @@ class TheJudge:
         """
 
         try:
+            judge_config_kwargs: Dict[str, Any] = {
+                "system_instruction": self.system_instruction,
+                "response_mime_type": "application/json",
+            }
+            if is_modern_gemini_model(self.config.AUX_MODEL_NAME):
+                judge_config_kwargs["thinking_config"] = types.ThinkingConfig(
+                    thinking_level=self.config.AUX_THINKING_LEVEL
+                )
+            else:
+                judge_config_kwargs["temperature"] = 0.0
+
             response = await self.client.aio.models.generate_content(
-                model=self.config.MODEL_NAME,
+                model=self.config.AUX_MODEL_NAME,
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=self.system_instruction,
-                    temperature=0.0,
-                    response_mime_type="application/json",
-                ),
+                config=types.GenerateContentConfig(**judge_config_kwargs),
             )
 
             raw_text = response.text.strip()

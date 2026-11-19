@@ -18,7 +18,9 @@ class RerankerService:
         self.config = config
         # Ideally injected, but for now we instantiate here to minimize breaking changes
         self.llm = GoogleGenAIProvider(
-            model_name=self.config.MODEL_NAME, temperature=0.0
+            model_name=self.config.AUX_MODEL_NAME,
+            temperature=0.0,
+            thinking_level=self.config.AUX_THINKING_LEVEL,
         )
         self.llm.configure(self.config.GOOGLE_API_KEY.get_secret_value())
 
@@ -55,7 +57,14 @@ class RerankerService:
                 prompt, config={"response_mime_type": "application/json"}
             )
 
-            selected_ids = json.loads(response_text)
+            cleaned_text = (
+                response_text.strip()
+                .removeprefix("```json")
+                .removeprefix("```")
+                .removesuffix("```")
+                .strip()
+            )
+            selected_ids = json.loads(cleaned_text)
             reranked_docs = []
 
             # Defensive coding against hallucinated IDs

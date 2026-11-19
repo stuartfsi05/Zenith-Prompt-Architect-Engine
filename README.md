@@ -38,7 +38,7 @@ graph TD
         Executor -->|2. Retrieve Context| HybridRAG["Hybrid RAG System"]
         Executor -->|3. Query Memory| Profiler["Strategic Memory"]
         
-        Executor -->|4. Generate| LLM["LLM (Google Gemini 2.5)"]
+        Executor -->|4. Generate| LLM["LLM (Google Gemini 3.8 Flash)"]
     end
     
     Agent -->|5. Audit| Judge["The Judge (Audit Layer)"]
@@ -51,7 +51,7 @@ O sistema foi construído sobre pilares de performance e segurança de tipos:
 
 *   **Core**: Python 3.10+ com Type Hinting estrito.
 *   **API**: FastAPI (Assíncrono) para alta concorrência.
-*   **Inteligência**: Google Gemini 2.5 Flash (Janelas de contexto longas e baixa latência).
+*   **Inteligência**: Arquitetura Híbrida 100% Free Tier — Google Gemini 3.8 Flash (geração principal) + Gemini 3.5 Flash-Lite (módulos auxiliares: roteamento, reranking, auditoria e memória) + Gemini Embedding 2 (RAG vetorial).
 *   **Persistência**: Supabase (PostgreSQL para dados relacionais + pgvector para embeddings).
 *   **Engenharia de Software**: Injeção de Dependência, Clean Architecture e Princípios SOLID.
 

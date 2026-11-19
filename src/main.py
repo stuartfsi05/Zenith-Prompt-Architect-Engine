@@ -81,7 +81,8 @@ async def main() -> None:
     # 4. Initialize Zenith Agent via Dependency Injection
     try:
         with console.status(
-            f"[bold green]Initializing {config.MODEL_NAME}...", spinner="dots"
+            f"[bold green]Initializing {config.MODEL_NAME} (aux: {config.AUX_MODEL_NAME})...",
+            spinner="dots",
         ):
             # Resolve singleton dependencies
             db = get_db(config)

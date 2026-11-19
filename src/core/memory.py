@@ -1,12 +1,13 @@
 import asyncio
 import json
 import os
-from typing import Any, List
+from typing import Any, Dict, List
 
 from google import genai
 from google.genai import types
 
 from src.core.config import Config
+from src.core.llm.google_genai import is_modern_gemini_model
 from src.utils.logger import setup_logger
 
 logger = setup_logger("StrategicMemory")
@@ -34,6 +35,19 @@ class StrategicMemory:
             "You are a Background Memory Processor. "
             "Your job is to compress information and extract facts."
         )
+
+    def _build_config(self, json_output: bool = False) -> types.GenerateContentConfig:
+        """Builds generation config compatible with modern Gemini 3+/4+ models."""
+        config_kwargs: Dict[str, Any] = {
+            "system_instruction": self.system_instruction,
+        }
+        if json_output:
+            config_kwargs["response_mime_type"] = "application/json"
+        if is_modern_gemini_model(self.config.AUX_MODEL_NAME):
+            config_kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_level=self.config.AUX_THINKING_LEVEL
+            )
+        return types.GenerateContentConfig(**config_kwargs)
 
     def load_memory(self):
         """Loads semantic memory from JSON."""
@@ -104,11 +118,9 @@ class StrategicMemory:
 
         try:
             response = await self.client.aio.models.generate_content(
-                model=self.config.MODEL_NAME,
+                model=self.config.AUX_MODEL_NAME,
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=self.system_instruction
-                ),
+                config=self._build_config(),
             )
             if response.text:
                 self.master_summary = response.text
@@ -173,12 +185,9 @@ class StrategicMemory:
 
         try:
             response = await self.client.aio.models.generate_content(
-                model=self.config.MODEL_NAME,
+                model=self.config.AUX_MODEL_NAME,
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=self.system_instruction,
-                    response_mime_type="application/json",
-                ),
+                config=self._build_config(json_output=True),
             )
 
             updated_profile = json.loads(response.text)
