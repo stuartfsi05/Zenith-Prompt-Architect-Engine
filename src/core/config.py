@@ -31,11 +31,27 @@ class Config(BaseSettings):
     THINKING_LEVEL: Literal["low", "medium", "high"] = "medium"
     AUX_THINKING_LEVEL: Literal["minimal", "low", "medium", "high"] = "minimal"
     TEMPERATURE: float = Field(default=0.1, ge=0.0, le=1.0)
+    DEMO_DAILY_LIMIT: int = Field(default=5, ge=1, le=100)
+    ALLOWED_ORIGINS: str = (
+        "http://localhost:5173,http://localhost:3000,https://zenith-interface.vercel.app"
+    )
+    SYSTEM_PROMPT_OVERRIDE: Optional[str] = Field(
+        default=None, alias="SYSTEM_PROMPT_PATH"
+    )
 
     # Paths (Dynamically computed defaults)
     BASE_DIR: Path = Field(
         default_factory=lambda: Path(__file__).resolve().parent.parent.parent
     )
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        """Parses comma-separated CORS origins into a clean list."""
+        return [
+            origin.strip()
+            for origin in self.ALLOWED_ORIGINS.split(",")
+            if origin.strip()
+        ]
 
     @property
     def DATA_DIR(self) -> Path:
@@ -55,7 +71,16 @@ class Config(BaseSettings):
 
     @property
     def SYSTEM_PROMPT_PATH(self) -> Path:
-        return self.DATA_DIR / "prompts" / "system_instruction.md"
+        if self.SYSTEM_PROMPT_OVERRIDE:
+            candidate = Path(self.SYSTEM_PROMPT_OVERRIDE)
+            if not candidate.is_absolute():
+                candidate = self.BASE_DIR / candidate
+            if candidate.exists():
+                return candidate
+        default_md = self.DATA_DIR / "prompts" / "system_instruction.md"
+        if default_md.exists():
+            return default_md
+        return self.SAMPLE_SYSTEM_PROMPT_PATH
 
     @property
     def SAMPLE_SYSTEM_PROMPT_PATH(self) -> Path:

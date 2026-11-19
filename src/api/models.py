@@ -4,7 +4,12 @@ from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., description="The user's message to the agent")
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=12000,
+        description="The user's message to the agent",
+    )
     session_id: str = Field(
         default="default_session",
         description="Session identifier for conversation history",
@@ -13,15 +18,14 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     """
-    Standard response model.
-    For streaming, this schema might not strictly apply to the chunked output,
-    but represents the logical structure of a message part.
+    Typed streaming event emitted over NDJSON ('meta', 'chunk', 'quality', or 'error').
     """
 
-    content: str = Field(..., description="The chunk or full content of the response")
+    type: str = Field(default="chunk", description="Event type")
+    content: str = Field(default="", description="The chunk or message content")
     metadata: Optional[dict[str, Any]] = Field(
         default=None,
-        description="Additional metadata (e.g., retrieval sources, scores)",
+        description="Additional metadata (e.g., quota, mode, quality evaluation)",
     )
 
 
@@ -42,7 +46,9 @@ class TokenResponse(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    message: str = Field(..., description="The feedback content")
+    message: str = Field(
+        ..., min_length=1, max_length=2000, description="The feedback content"
+    )
 
 
 class RegisterRequest(BaseModel):

@@ -1,13 +1,14 @@
 import asyncio
 import json
-import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from google import genai
 from google.genai import types
 
 from src.core.config import Config
+from src.core.database import PersistenceLayer
 from src.core.llm.google_genai import is_modern_gemini_model
+from src.utils.json_utils import parse_llm_json
 from src.utils.logger import setup_logger
 
 logger = setup_logger("StrategicMemory")
@@ -15,22 +16,22 @@ logger = setup_logger("StrategicMemory")
 
 class StrategicMemory:
     """
-    Implements Progressive Semantic Memory.
-    Features Master Summary and Entity Extraction.
+    Implements Progressive Semantic Memory strictly isolated per user_id.
+    Features per-user Master Summary and Entity Extraction.
     """
 
-    def __init__(self, config: Config):
+    def __init__(
+        self,
+        config: Config,
+        db: Optional[PersistenceLayer] = None,
+        api_key: Optional[str] = None,
+    ):
         self.config = config
-        self.memory_path = os.path.join(os.getcwd(), "data", "memory.json")
+        self.db = db
+        self._cache: Dict[str, Dict[str, Any]] = {}
 
-        self.master_summary = ""
-        self.user_profile = {}
-
-        self.load_memory()
-
-        self.client = genai.Client(
-            api_key=self.config.GOOGLE_API_KEY.get_secret_value()
-        )
+        effective_key = api_key or self.config.GOOGLE_API_KEY.get_secret_value()
+        self.client = genai.Client(api_key=effective_key)
         self.system_instruction = (
             "You are a Background Memory Processor. "
             "Your job is to compress information and extract facts."
@@ -49,42 +50,56 @@ class StrategicMemory:
             )
         return types.GenerateContentConfig(**config_kwargs)
 
-    def load_memory(self):
-        """Loads semantic memory from JSON."""
-        if os.path.exists(self.memory_path):
-            try:
-                with open(self.memory_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    self.master_summary = data.get("master_summary", "")
-                    self.user_profile = data.get("user_profile", {})
-                logger.info("Semantic Memory loaded.")
-            except Exception as e:
-                logger.error(f"Failed to load memory: {e}")
+    def load_user_memory(self, user_id: str) -> Dict[str, Any]:
+        """Loads semantic memory strictly scoped to user_id."""
+        if not user_id:
+            return {"master_summary": "", "user_profile": {}}
+
+        if user_id in self._cache:
+            return self._cache[user_id]
+
+        if self.db is not None:
+            loaded = self.db.get_user_memory(user_id)
+            mem = {
+                "master_summary": loaded.get("master_summary") or "",
+                "user_profile": dict(loaded.get("user_profile") or {}),
+            }
         else:
-            logger.info("No existing memory found. Starting fresh.")
+            mem = {"master_summary": "", "user_profile": {}}
 
-    def save_memory(self):
-        """Saves semantic memory to JSON."""
-        data = {
-            "master_summary": self.master_summary,
-            "user_profile": self.user_profile,
-        }
-        try:
-            os.makedirs(os.path.dirname(self.memory_path), exist_ok=True)
-            with open(self.memory_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-            logger.info("Semantic Memory saved.")
-        except Exception as e:
-            logger.error(f"Failed to save memory: {e}")
+        self._cache[user_id] = mem
+        return mem
 
-    async def consolidate_memory_async(self, old_messages: List[Any]):
-        """
-        Integrates old messages into the Master Summary.
-        """
-        if not old_messages:
+    def save_user_memory(
+        self, user_id: str, master_summary: str, user_profile: Dict[str, Any]
+    ) -> None:
+        """Saves semantic memory strictly scoped to user_id."""
+        if not user_id:
             return
 
-        logger.info(f"Consolidating {len(old_messages)} old messages into Summary...")
+        mem = {
+            "master_summary": master_summary,
+            "user_profile": dict(user_profile),
+        }
+        self._cache[user_id] = mem
+
+        if self.db is not None:
+            try:
+                self.db.save_user_memory(user_id, master_summary, mem["user_profile"])
+            except Exception as e:
+                logger.error(f"Failed to persist memory for user {user_id}: {e}")
+
+    async def consolidate_memory_async(
+        self, user_id: str, old_messages: List[Any]
+    ) -> None:
+        """Integrates old messages into the user's Master Summary."""
+        if not user_id or not old_messages:
+            return
+
+        logger.info(
+            f"Consolidating {len(old_messages)} old messages for user {user_id}..."
+        )
+        mem = self.load_user_memory(user_id)
 
         conversation_text = ""
         for msg in old_messages:
@@ -92,17 +107,16 @@ class StrategicMemory:
             content = ""
             if hasattr(msg, "parts"):
                 for part in msg.parts:
-                    content += part.text
+                    content += getattr(part, "text", "") or ""
             else:
                 content = str(msg)
-
             conversation_text += f"{role}: {content}\n"
 
         prompt = f"""
         TAREFA: Compressão Semântica (Atualização de Resumo Mestre)
 
         RESUMO MESTRE ATUAL:
-        {self.master_summary}
+        {mem["master_summary"]}
 
         NOVAS MENSAGENS ARQUIVADAS:
         {conversation_text}
@@ -123,22 +137,23 @@ class StrategicMemory:
                 config=self._build_config(),
             )
             if response.text:
-                self.master_summary = response.text
-                self.save_memory()
-                logger.info("Master Summary updated.")
+                self.save_user_memory(
+                    user_id, response.text.strip(), mem["user_profile"]
+                )
+                logger.info(f"Master Summary updated for user {user_id}.")
         except Exception as e:
             logger.error(f"Memory Consolidation Failed: {e}")
 
-    async def manage_history(self, chat_session: Any, max_history: int = 20):
+    async def manage_history(
+        self, chat_session: Any, user_id: str, max_history: int = 20
+    ) -> None:
         """
         Checks chat history length and triggers consolidation if needed.
-        Acts as a background maintenance task.
+        Acts as a background maintenance task scoped to user_id.
         """
-        # Generic access via ChatSession interface
         if not hasattr(chat_session, "history"):
             return
 
-        # Access history property (getter)
         current_history = chat_session.history
         history_len = len(current_history)
 
@@ -148,28 +163,28 @@ class StrategicMemory:
 
             logger.info(
                 f"Pruning History (Current: {history_len}). "
-                f"Archiving {len(items_to_prune)} items."
+                f"Archiving {len(items_to_prune)} items for user {user_id}."
             )
 
-            # Prune first (setter), then consolidate async
             chat_session.history = current_history[prune_count:]
+            asyncio.create_task(self.consolidate_memory_async(user_id, items_to_prune))
 
-            asyncio.create_task(self.consolidate_memory_async(items_to_prune))
-
-    async def extract_entities_async(self, user_input: str, model_output: str):
-        """
-        Analyzes the latest interaction to extract persistent facts.
-        """
-        if len(user_input) < 10:
+    async def extract_entities_async(
+        self, user_id: str, user_input: str, model_output: str
+    ) -> None:
+        """Analyzes the latest interaction to extract persistent facts for user_id."""
+        if not user_id or len(user_input) < 10:
             return
 
-        logger.info("Extracting Entities & Facts...")
+        logger.info(f"Extracting Entities & Facts for user {user_id}...")
+        mem = self.load_user_memory(user_id)
+        current_profile = mem["user_profile"]
 
         prompt = f"""
         TAREFA: Extração de Entidades e Fatos (User Profile)
 
         PERFIL DE USUÁRIO ATUAL (JSON):
-        {json.dumps(self.user_profile, ensure_ascii=False)}
+        {json.dumps(current_profile, ensure_ascii=False)}
 
         INTERAÇÃO RECENTE:
         User: {user_input}
@@ -190,32 +205,35 @@ class StrategicMemory:
                 config=self._build_config(json_output=True),
             )
 
-            updated_profile = json.loads(response.text)
+            updated_profile = parse_llm_json(response.text)
+            if not isinstance(updated_profile, dict):
+                return
 
-            if updated_profile != self.user_profile:
-                self.user_profile = updated_profile
-                self.save_memory()
-                logger.info(f"User Profile updated: {self.user_profile.keys()}")
+            if updated_profile != current_profile:
+                self.save_user_memory(user_id, mem["master_summary"], updated_profile)
+                logger.info(
+                    f"User Profile updated for {user_id}: {list(updated_profile.keys())}"
+                )
             else:
                 logger.info("No new entities found.")
 
         except Exception as e:
             logger.warning(f"Entity Extraction Failed: {e}")
 
-    def get_context_injection(self) -> str:
-        """Returns the formatted string to be injected into the LLM context."""
+    def get_context_injection(self, user_id: str) -> str:
+        """Returns the formatted memory string strictly for user_id."""
+        mem = self.load_user_memory(user_id)
+        user_profile = mem["user_profile"]
+        master_summary = mem["master_summary"]
         context = ""
 
-        if self.user_profile:
-            facts = "\n".join([f"- {k}: {v}" for k, v in self.user_profile.items()])
-            context += (
-                f"--- [MEMÓRIA SEMÂNTICA: PERFIL DO USUÁRIO] ---\n" f"{facts}\n\n"
-            )
+        if user_profile:
+            facts = "\n".join([f"- {k}: {v}" for k, v in user_profile.items()])
+            context += f"--- [MEMÓRIA SEMÂNTICA: PERFIL DO USUÁRIO] ---\n{facts}\n\n"
 
-        if self.master_summary:
+        if master_summary:
             context += (
-                f"--- [MEMÓRIA SEMÂNTICA: RESUMO MESTRE] ---\n"
-                f"{self.master_summary}\n\n"
+                f"--- [MEMÓRIA SEMÂNTICA: RESUMO MESTRE] ---\n{master_summary}\n\n"
             )
 
         return context

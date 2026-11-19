@@ -2,9 +2,9 @@ import logging
 from typing import Any, Dict, Optional
 
 from fastapi import HTTPException, status
-from supabase import Client, create_client
 
 from src.core.config import Config
+from supabase import Client, create_client
 
 # Logger for Authentication events
 logger = logging.getLogger("AuthService")
@@ -169,5 +169,5 @@ class AuthService:
             logger.error(f"Registration Failure for '{email}': {e}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Falha ao criar conta. Talvez o email já esteja em uso ou a senha é muito fraca.",
+                detail="Falha ao criar conta. Talvez o email já esteja em uso ou a senha é muito fraca.",
             )

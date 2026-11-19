@@ -2,68 +2,72 @@
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-High%20Performance-009688)
-![Supabase](https://img.shields.io/badge/Supabase-Vector%20Store-3ECF8E)
-![Project Status](https://img.shields.io/badge/Status-Commercial%20Ready-success)
+![Supabase](https://img.shields.io/badge/Supabase-Auth%20%26%20Postgres-3ECF8E)
+![Project Status](https://img.shields.io/badge/Status-Production%20Ready-success)
 
-**Zenith** é um **Motor Cognitivo Headless** (sem interface visual) de alta performance. Ele foi projetado para atuar como o cérebro autônomo de aplicações complexas, operando via API para fornecer inteligência pura como serviço.
-
-> **Nota**: Este é um projeto proprietário de alta complexidade, arquitetado para escalabilidade empresarial e precisão cognitiva.
+**Zenith** é um **Motor Cognitivo Headless** e uma **Bancada Didática de Engenharia de Prompts**. Ele transforma pedidos vagos em prompts estruturados de alto nível, ensina *por que* cada técnica foi escolhida e opera com **Modo Híbrido** (Demo Grátis sem atrito + BYOK opcional para destravar `gemini-3.8-flash`).
 
 ---
 
-## 🧠 O Que é o Zenith?
+## 🧠 Como o Zenith Funciona
 
-O Zenith transcende a definição de um simples "chatbot". Ele opera como um **Orquestrador Cognitivo**, implementando um pipeline de raciocínio sofisticado antes de cada interação:
-
-1.  **Roteador Cognitivo**: Um sistema de classificação preliminar que decide a melhor estratégia (Planejamento, Raciocínio Lógico, Criatividade ou Extração de Dados) para cada input do usuário.
-2.  **Memória Estratégica**: Diferente de LLMs comuns que esquecem fatos ao iniciar novas sessões, o Zenith extrai e persiste informações cruciais sobre o usuário em um perfil de longo prazo (armazenado em banco de dados), permitindo uma personalização progressiva.
-3.  **RAG Híbrido (Retrieval-Augmented Generation)**: Combina busca semântica (vetores) com busca lexical para fundamentar respostas em dados técnicos reais, eliminando alucinações.
-4.  **O Juiz (Quality Gate)**: Um modelo de auditoria interno avalia cada resposta gerada *antes* de enviá-la ao usuário. Se a qualidade (precisão, segurança, tom) for inferior a 80%, a resposta é rejeitada e regenerada automaticamente.
+1. **Input Shield (`SemanticValidator`)**: Bloqueia vazamento de credenciais (`sk-`, `AIza`, `ghp_`, `AKIA`), cartões de crédito (via checksum Luhn sem falsos positivos em CNPJs/IDs), tentativas de jailbreak e payloads acima do limite.
+2. **Roteador Cognitivo (`StrategicAnalyzer`)**: Classifica natureza, complexidade e estratégia antes de consultar o RAG — economizando cota em pedidos simples.
+3. **RAG Híbrido Condicional**: Combina busca vetorial (**FAISS** + `models/gemini-embedding-2`), busca lexical (**BM25**), **Reciprocal Rank Fusion (RRF)** e reranking com LLM apenas quando a complexidade exige fundamentação na base técnica.
+4. **Memória Semântica Multi-Tenant (`StrategicMemory`)**: Isolada estritamente por `user_id` e persistida no Supabase (`user_memories`) com políticas de Row-Level Security (RLS).
+5. **Auditoria Inteligente (`TheJudge`)**: Avalia respostas complexas fora de banda e emite eventos tipados `quality` via NDJSON (sem duplicar texto nem poluir o histórico).
 
 ---
 
-## 🏗️ Arquitetura Técnica
+## 🏗️ Arquitetura e Modos de Execução
 
-O Zenith utiliza um **Padrão de Serviço Transiente**, garantindo que o agente exista apenas durante o ciclo de vida da requisição, otimizando recursos em ambientes serverless.
+* **Modo Demo (Sem API Key do usuário):** usa a chave do servidor com **`gemini-3.5-flash-lite`** (`thinking_level="low"`) e limite diário configurável (`DEMO_DAILY_LIMIT=5`) por conta.
+* **Modo Pro / BYOK (Com `x-google-api-key` opcional):** redireciona **todos** os módulos (Chat, Analyzer, Judge, Reranker e Memory) para a chave do usuário e libera **`gemini-3.8-flash`** (`thinking_level="medium"`) sem consumir cota do servidor.
 
 ```mermaid
 graph TD
     Client["Client App / Interface"] -->|API Call| API["Zenith Gateway (FastAPI)"]
-    
+
     subgraph "Zenith Engine Pipeline"
-        API -->|Instantiate| Agent["Transient Agent"]
-        Agent -->|1. Classify| Router["Cognitive Router"]
-        
-        Router -->|Strategy| Executor["Execution Core"]
-        Executor -->|2. Retrieve Context| HybridRAG["Hybrid RAG System"]
-        Executor -->|3. Query Memory| Profiler["Strategic Memory"]
-        
-        Executor -->|4. Generate| LLM["LLM (Google Gemini 3.8 Flash)"]
+        API -->|1. Shield & Quota| Agent["Transient Agent"]
+        Agent -->|2. Classify| Router["Cognitive Router (3.5 Flash-Lite)"]
+
+        Router -->|3. Conditional Gate| HybridRAG["Hybrid RAG (FAISS + BM25 + RRF)"]
+        Agent -->|4. Scoped Context| Profiler["Per-User Memory (Supabase RLS)"]
+
+        Agent -->|5. Stream Chunks| LLM["Demo: 3.5 Flash-Lite | BYOK: 3.8 Flash"]
     end
-    
-    Agent -->|5. Audit| Judge["The Judge (Audit Layer)"]
-    Judge -- Approved (Score > 80) --> Client
-    Judge -- Rejected --> Executor
+
+    Agent -->|6. Out-of-Band Audit| Judge["The Judge -> NDJSON quality event"]
+    LLM --> Client
+    Judge --> Client
 ```
 
 ### Stack Tecnológico
-O sistema foi construído sobre pilares de performance e segurança de tipos:
 
-*   **Core**: Python 3.10+ com Type Hinting estrito.
-*   **API**: FastAPI (Assíncrono) para alta concorrência.
-*   **Inteligência**: Arquitetura Híbrida 100% Free Tier — Google Gemini 3.8 Flash (geração principal) + Gemini 3.5 Flash-Lite (módulos auxiliares: roteamento, reranking, auditoria e memória) + Gemini Embedding 2 (RAG vetorial).
-*   **Persistência**: Supabase (PostgreSQL para dados relacionais + pgvector para embeddings).
-*   **Engenharia de Software**: Injeção de Dependência, Clean Architecture e Princípios SOLID.
+* **Core**: Python 3.10+ com Pydantic Settings e Type Hinting.
+* **API**: FastAPI (Assíncrono) com streaming NDJSON tipado (`meta`, `chunk`, `quality`, `error`) e CORS configurável (`ALLOWED_ORIGINS`).
+* **Inteligência**: Arquitetura Híbrida 100% Free Tier — `gemini-3.8-flash` (BYOK) + `gemini-3.5-flash-lite` (Demo & Módulos Auxiliares) + `models/gemini-embedding-2` (Embeddings RAG).
+* **Persistência & Segurança**: Supabase (Auth + PostgreSQL com RLS via [001_user_memories_and_rls.sql](supabase/migrations/001_user_memories_and_rls.sql)) + FAISS local / BM25 em memória.
 
 ---
 
-## 📚 Capacidades da API
+## 📚 Endpoints da API
 
-O Zenith expõe uma API RESTful completa documentada via OpenAPI (Swagger), permitindo integração fácil com qualquer frontend (Web, Mobile, WhatsApp Business API).
+* **`GET /health`**: Health check do serviço (também usado para aquecer instâncias serverless).
+* **`POST /token`** & **`POST /register`**: Autenticação via Supabase Auth (JWT).
+* **`GET /quota`**: Retorna o modo ativo (`demo` ou `byok`), modelo em uso e cota diária restante.
+* **`POST /chat`**: Endpoint principal de streaming NDJSON tipado.
+* **`GET /sessions`**: Lista as sessões recentes do usuário autenticado.
+* **`GET /sessions/{session_id}/messages`**: Recupera o histórico da sessão após validação de ownership.
+* **`DELETE /sessions/{session_id}`**: Remove sessão e interações pertencentes ao usuário.
+* **`POST /feedback`**: Encaminha feedback via Supabase Edge Function.
 
-*   **POST /chat**: Endpoint principal omnicanal.
-*   **GET /history**: Recuperação de contexto histórico.
-*   **POST /feedback**: Endpoint para Reinforcement Learning (RLHF) futuro.
+---
+
+## ⚙️ Migração do Banco (Supabase)
+
+Execute o script SQL [supabase/migrations/001_user_memories_and_rls.sql](supabase/migrations/001_user_memories_and_rls.sql) no SQL Editor do seu projeto Supabase para criar a tabela `public.user_memories` e habilitar Row-Level Security (RLS) em todas as tabelas por usuário.
 
 ---
 

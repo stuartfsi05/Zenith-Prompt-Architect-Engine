@@ -1,9 +1,9 @@
-import json
-from typing import List
+from typing import List, Optional
 
 from src.core.config import Config
 from src.core.knowledge.retriever import Document
 from src.core.llm.google_genai import GoogleGenAIProvider
+from src.utils.json_utils import parse_llm_json
 from src.utils.logger import setup_logger
 
 logger = setup_logger("Reranker")
@@ -14,15 +14,15 @@ class RerankerService:
     Uses LLM to re-rank documents based on relevance to the query.
     """
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, api_key: Optional[str] = None):
         self.config = config
-        # Ideally injected, but for now we instantiate here to minimize breaking changes
+        effective_key = api_key or self.config.GOOGLE_API_KEY.get_secret_value()
         self.llm = GoogleGenAIProvider(
             model_name=self.config.AUX_MODEL_NAME,
             temperature=0.0,
             thinking_level=self.config.AUX_THINKING_LEVEL,
         )
-        self.llm.configure(self.config.GOOGLE_API_KEY.get_secret_value())
+        self.llm.configure(effective_key)
 
     async def rerank(
         self, query: str, candidates: List[Document], top_n: int = 3
@@ -52,22 +52,15 @@ class RerankerService:
         """
 
         try:
-            # Using LLM Provider Abstraction
             response_text = await self.llm.generate_content_async(
                 prompt, config={"response_mime_type": "application/json"}
             )
 
-            cleaned_text = (
-                response_text.strip()
-                .removeprefix("```json")
-                .removeprefix("```")
-                .removesuffix("```")
-                .strip()
-            )
-            selected_ids = json.loads(cleaned_text)
-            reranked_docs = []
+            selected_ids = parse_llm_json(response_text)
+            if not isinstance(selected_ids, list):
+                return candidates[:top_n]
 
-            # Defensive coding against hallucinated IDs
+            reranked_docs = []
             for idx in selected_ids:
                 if isinstance(idx, int) and 0 <= idx < len(candidates):
                     reranked_docs.append(candidates[idx])

@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -10,6 +11,18 @@ from src.utils.logger import setup_logger
 
 # Setup Logger
 logger = setup_logger("ZenithServer")
+
+
+def _resolve_allowed_origins() -> list[str]:
+    """Resolves allowed CORS origins from Config or environment safely."""
+    try:
+        return get_config().allowed_origins_list
+    except Exception:
+        raw = os.getenv(
+            "ALLOWED_ORIGINS",
+            "http://localhost:5173,http://localhost:3000,https://zenith-interface.vercel.app",
+        )
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
 @asynccontextmanager
@@ -41,10 +54,10 @@ app = FastAPI(
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for now (dev mode)
+    allow_origins=_resolve_allowed_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "x-google-api-key"],
 )
 
 app.include_router(router)

@@ -1,9 +1,10 @@
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from src.core.config import Config
 from src.core.llm.google_genai import GoogleGenAIProvider
+from src.utils.json_utils import parse_llm_json
 
 
 class StrategicAnalyzer:
@@ -11,8 +12,9 @@ class StrategicAnalyzer:
     Analyzes user intent to determine complexity and required strategy.
     """
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, api_key: Optional[str] = None):
         self.config = config
+        effective_key = api_key or self.config.GOOGLE_API_KEY.get_secret_value()
 
         # Initialize LLM Provider
         self.llm = GoogleGenAIProvider(
@@ -21,7 +23,7 @@ class StrategicAnalyzer:
             temperature=0.1,
             thinking_level=self.config.AUX_THINKING_LEVEL,
         )
-        self.llm.configure(self.config.GOOGLE_API_KEY.get_secret_value())
+        self.llm.configure(effective_key)
 
         self.logger = logging.getLogger("StrategicAnalyzer")
 
@@ -34,9 +36,9 @@ class StrategicAnalyzer:
         SUA MISSÃO: Analisar o input do usuário e classificar a intenção.
 
         RETORNE APENAS UM JSON VÁLIDO. NADA MAIS.
-        
+
         ### ESTRUTURA DE ANÁLISE
-        
+
         1. VETOR 1: NATUREZA DA TAREFA (natureza)
            - [G] Geração: Criatividade, escrita.
            - [R] Raciocínio: Lógica, análise crítica.
@@ -44,17 +46,17 @@ class StrategicAnalyzer:
            - [E] Extração: Resumo, formatação de dados.
            - [C] Codificação: Escrever código.
            - [I] Investigação: Busca factual.
-        
+
         2. VETOR 2: COMPLEXIDADE (complexidade)
            - [S] Simples: Direto.
            - [C] Composta: Múltiplas variáveis.
            - [A] Abstrata: Subjetivo.
-        
+
         3. VETOR 3: PRIORIDADE DE RECURSOS (prioridade)
            - [R] Rápida
            - [P] Padrão
            - [E] Exaustiva
-        
+
         ### output_schema (JSON)
         {
             "natureza": "String (ex: Geração)",
@@ -63,7 +65,7 @@ class StrategicAnalyzer:
             "intencao_sintetizada": "Resumo de 1 linha",
             "strategy_selected": "Nome da estratégia sugerida"
         }
-        
+
         Analise o input e gere o JSON.
         """
 
@@ -82,17 +84,10 @@ class StrategicAnalyzer:
                     config={"response_mime_type": "application/json"},
                 )
 
-                if not response_text:
-                    raise ValueError("Empty response from Analyzer")
+                analysis_json = parse_llm_json(response_text)
+                if not isinstance(analysis_json, dict):
+                    raise ValueError("Analyzer output must be a JSON object")
 
-                cleaned_text = (
-                    response_text.strip()
-                    .removeprefix("```json")
-                    .removeprefix("```")
-                    .removesuffix("```")
-                    .strip()
-                )
-                analysis_json = json.loads(cleaned_text)
                 self.logger.info(
                     f"Analysis successful (Attempt {attempt + 1}): "
                     f"{analysis_json.get('natureza')}"

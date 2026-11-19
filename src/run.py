@@ -8,4 +8,6 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 if __name__ == "__main__":
-    uvicorn.run("src.api.server:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", "8000"))
+    reload_enabled = os.getenv("ZENITH_RELOAD", "false").lower() == "true"
+    uvicorn.run("src.api.server:app", host="0.0.0.0", port=port, reload=reload_enabled)

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from langchain_core.documents import Document
 
@@ -28,9 +28,14 @@ class StrategicKnowledgeBase:
             await self.retriever.initialize()
             self.is_initialized = True
 
-    async def retrieve_async(self, query: str, final_k: int = 3) -> str:
+    async def retrieve_async(
+        self,
+        query: str,
+        final_k: int = 3,
+        reranker: Optional[RerankerService] = None,
+    ) -> str:
         """
-        Main entry point for retrieval.
+        Main entry point for retrieval. Allows per-request reranker override (BYOK).
         """
         await self.ensure_initialized()
 
@@ -41,7 +46,8 @@ class StrategicKnowledgeBase:
         top_candidates = candidates[:10]
 
         # 3. LLM Reranking
-        final_docs = await self.reranker.rerank(query, top_candidates, top_n=final_k)
+        active_reranker = reranker or self.reranker
+        final_docs = await active_reranker.rerank(query, top_candidates, top_n=final_k)
 
         return self._format_results(final_docs)
 
@@ -51,6 +57,6 @@ class StrategicKnowledgeBase:
         for i, doc in enumerate(docs):
             source = doc.metadata.get("source", "Unknown")
             context_parts.append(
-                f"[Documento {i+1} | Fonte: {source}]\n{doc.page_content}\n"
+                f"[Documento {i + 1} | Fonte: {source}]\n{doc.page_content}\n"
             )
         return "\n".join(context_parts)

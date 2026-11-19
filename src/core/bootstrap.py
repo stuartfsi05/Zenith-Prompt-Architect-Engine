@@ -53,7 +53,7 @@ class BootstrapService:
                 os.makedirs(path, exist_ok=True)
 
         if not os.path.exists(config.SYSTEM_PROMPT_PATH):
-            logger.info(f"System prompt not found. Attempting to create from sample...")
+            logger.info("System prompt not found. Attempting to create from sample...")
 
             if os.path.exists(config.SAMPLE_SYSTEM_PROMPT_PATH):
                 import shutil
@@ -75,7 +75,7 @@ class BootstrapService:
                     f"Sample prompt not found at {config.SAMPLE_SYSTEM_PROMPT_PATH}"
                 )
                 console.print(
-                    f"[bold yellow]⚠️ System Prompt and Sample missing. Agent requires instructions.[/bold yellow]"
+                    "[bold yellow]⚠️ System Prompt and Sample missing. Agent requires instructions.[/bold yellow]"
                 )
 
     @staticmethod

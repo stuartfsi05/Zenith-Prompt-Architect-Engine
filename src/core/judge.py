@@ -1,12 +1,12 @@
-import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from google import genai
 from google.genai import types
 
 from src.core.config import Config
 from src.core.llm.google_genai import is_modern_gemini_model
+from src.utils.json_utils import parse_llm_json
 
 
 class TheJudge:
@@ -14,42 +14,41 @@ class TheJudge:
     Evaluates the quality of the Agent's output against the User's input.
     """
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, api_key: Optional[str] = None):
         self.config = config
         self.logger = logging.getLogger("ZenithJudge")
 
-        self.client = genai.Client(
-            api_key=self.config.GOOGLE_API_KEY.get_secret_value()
-        )
+        effective_key = api_key or self.config.GOOGLE_API_KEY.get_secret_value()
+        self.client = genai.Client(api_key=effective_key)
         self.system_instruction = self._get_system_prompt()
 
     def _get_system_prompt(self) -> str:
         return """
         ATUE COMO: O Juiz Supremo. Uma IA de Auditoria de Qualidade.
-        
+
         SUA MISSÃO: Classificar objetivamente a resposta de uma IA.
-        
-         ### RUBRICA DE AVALIAÇÃO (0-100 PONTOS)
-        
+
+        ### RUBRICA DE AVALIAÇÃO (0-100 PONTOS)
+
         1. **Fidelidade à Intenção (0-35 pontos):**
            - A resposta atende EXATAMENTE ao que foi pedido?
-        
+
         2. **Robustez e Segurança (0-25 pontos):**
            - A resposta é segura?
-        
+
         3. **Clareza e Didatismo (0-20 pontos):**
            - A formatação está impecável?
-        
+
         4. **Eficiência (0-20 pontos):**
            - Foi direto ao ponto?
-        
+
         ### OUTPUT SCHEMA (JSON OBRIGATÓRIO)
         Retorne APENAS um JSON válido.
-        
+
         {
-          "score": int, // Soma total (0-100)
-          "feedback": "string", // Crítica construtiva.
-          "needs_refinement": boolean // True se score < 80
+          "score": int,
+          "feedback": "string",
+          "needs_refinement": boolean
         }
         """
 
@@ -91,16 +90,9 @@ class TheJudge:
                 config=types.GenerateContentConfig(**judge_config_kwargs),
             )
 
-            raw_text = response.text.strip()
-
-            if raw_text.startswith("```json"):
-                raw_text = raw_text[7:]
-            if raw_text.startswith("```"):
-                raw_text = raw_text[3:]
-            if raw_text.endswith("```"):
-                raw_text = raw_text[:-3]
-
-            result = json.loads(raw_text)
+            result = parse_llm_json(response.text)
+            if not isinstance(result, dict):
+                raise ValueError("Judge output must be a JSON object")
 
             self.logger.info(
                 f"Verdict: Score {result.get('score')} | "
