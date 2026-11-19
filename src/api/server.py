@@ -20,9 +20,14 @@ def _resolve_allowed_origins() -> list[str]:
     except Exception:
         raw = os.getenv(
             "ALLOWED_ORIGINS",
-            "http://localhost:5173,http://localhost:3000,https://zenith-interface.vercel.app",
+            "http://localhost:5173,http://localhost:3000,"
+            "https://zenith-interface-ten.vercel.app",
         )
-        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+        return [
+            origin.strip().rstrip("/")
+            for origin in raw.split(",")
+            if origin.strip().rstrip("/")
+        ]
 
 
 @asynccontextmanager

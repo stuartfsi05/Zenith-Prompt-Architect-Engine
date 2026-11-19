@@ -16,12 +16,14 @@ def test_config_defaults_and_whitespace_stripping():
     assert cfg.THINKING_LEVEL == "medium"
     assert cfg.AUX_THINKING_LEVEL == "minimal"
     assert cfg.DEMO_DAILY_LIMIT == 5
+    assert "https://zenith-interface-ten.vercel.app" in cfg.allowed_origins_list
+    assert "https://zenith-interface.vercel.app" not in cfg.allowed_origins_list
 
 
 def test_allowed_origins_list_parsing():
     cfg = Config(
         GOOGLE_API_KEY="test-key",
-        ALLOWED_ORIGINS=" https://app.example.com , http://localhost:5173 , ",
+        ALLOWED_ORIGINS=" https://app.example.com/ , http://localhost:5173/ , / , ",
     )
     assert cfg.allowed_origins_list == [
         "https://app.example.com",

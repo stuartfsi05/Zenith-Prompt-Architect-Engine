@@ -33,7 +33,8 @@ class Config(BaseSettings):
     TEMPERATURE: float = Field(default=0.1, ge=0.0, le=1.0)
     DEMO_DAILY_LIMIT: int = Field(default=5, ge=1, le=100)
     ALLOWED_ORIGINS: str = (
-        "http://localhost:5173,http://localhost:3000,https://zenith-interface.vercel.app"
+        "http://localhost:5173,http://localhost:3000,"
+        "https://zenith-interface-ten.vercel.app"
     )
     SYSTEM_PROMPT_OVERRIDE: Optional[str] = Field(
         default=None, alias="SYSTEM_PROMPT_PATH"
@@ -48,9 +49,9 @@ class Config(BaseSettings):
     def allowed_origins_list(self) -> list[str]:
         """Parses comma-separated CORS origins into a clean list."""
         return [
-            origin.strip()
+            origin.strip().rstrip("/")
             for origin in self.ALLOWED_ORIGINS.split(",")
-            if origin.strip()
+            if origin.strip().rstrip("/")
         ]
 
     @property

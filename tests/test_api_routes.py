@@ -70,6 +70,31 @@ def test_health_and_cors_headers(api_client):
     assert res.json()["status"] == "ok"
     assert res.headers.get("access-control-allow-origin") == "http://localhost:5173"
 
+    preflight_prod = client.options(
+        "/token",
+        headers={
+            "Origin": "https://zenith-interface-ten.vercel.app",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert preflight_prod.status_code == 200
+    assert (
+        preflight_prod.headers.get("access-control-allow-origin")
+        == "https://zenith-interface-ten.vercel.app"
+    )
+
+    preflight_blocked = client.options(
+        "/token",
+        headers={
+            "Origin": "https://evil.example.com",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert preflight_blocked.status_code == 400
+    assert preflight_blocked.headers.get("access-control-allow-origin") is None
+
     blocked = client.get("/health", headers={"Origin": "https://evil.example.com"})
     assert blocked.headers.get("access-control-allow-origin") is None
 
